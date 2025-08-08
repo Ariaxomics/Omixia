@@ -1,2 +1,2 @@
 # Omixia
-Omics X AI for the interpretation and reporting of data
+Omics X AI for interpreting and reporting of clinical data
