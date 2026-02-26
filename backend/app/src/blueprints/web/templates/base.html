@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Omixia</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+
+<nav class="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+
+    <div class="flex space-x-6 items-center">
+        <a href="/" class="text-xl font-bold tracking-wide">
+            Omixia
+        </a>
+
+        <a href="/" class="hover:text-gray-300 transition">Home</a>
+        <a href="/samples" class="hover:text-gray-300 transition">Samples</a>
+        <a href="/about" class="hover:text-gray-300 transition">About</a>
+    </div>
+
+    <div>
+        {% if session.get('user') %}
+            <a href="/dashboard"
+               class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">
+               Dashboard
+            </a>
+        {% else %}
+            <a href="/login"
+               class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">
+               Login
+            </a>
+        {% endif %}
+    </div>
+
+</nav>
+
+<main class="max-w-7xl mx-auto px-6 py-10">
+    {% block content %}{% endblock %}
+</main>
+
+</body>
+</html>

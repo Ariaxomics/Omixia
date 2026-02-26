@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app
 from ...extensions import mongo_client
+from src.services.sample_service import SampleService
 
 api_bp = Blueprint("api", __name__)
 
@@ -20,3 +21,21 @@ def create_user():
     })
 
     return jsonify({"id": str(result.inserted_id)}), 201
+
+
+@api_bp.route("/samples", methods=["GET"])
+def list_samples():
+    samples = SampleService.list_samples()
+    return jsonify(samples)
+
+
+@api_bp.route("/samples/<sample_id>", methods=["GET"])
+def get_sample(sample_id):
+    sample = SampleService.get_sample(sample_id)
+    return jsonify(sample)
+
+
+@api_bp.route("/samples/<sample_id>/assays", methods=["GET"])
+def get_sample_assays(sample_id):
+    assays = SampleService.get_sample_assays(sample_id)
+    return jsonify(assays)

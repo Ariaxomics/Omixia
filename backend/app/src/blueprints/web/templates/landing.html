@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="text-center mt-20">
+
+    <h1 class="text-5xl font-bold text-gray-800 mb-6">
+        Omixia
+    </h1>
+
+    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+        Omixia is a clinical-grade somatic variant interpretation platform
+        designed for SNVs, CNVs, SVs, MSI and TMB analysis.
+        Built for precision oncology workflows and geneticist-led review.
+    </p>
+
+    <div class="mt-10 space-x-4">
+        <a href="/samples"
+           class="px-6 py-3 bg-gray-800 text-white rounded hover:bg-gray-700 transition">
+            View Samples
+        </a>
+
+        <a href="/login"
+           class="px-6 py-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition">
+            Login to Dashboard
+        </a>
+    </div>
+
+</div>
+
+{% endblock %}
