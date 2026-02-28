@@ -1,0 +1,17 @@
+[
+    {
+      "sample_assay_id": "SA_LUNG_001",
+      "callset_id": "CS_LUNG_001",
+      "raw_counts": {
+        "snv": 3,
+        "cnv": 0,
+        "sv": 0
+      },
+      "review_counts": {
+        "tiered": 0,
+        "artifact": 0,
+        "unreviewed": 3
+      },
+      "tier_counts": {}
+    }
+  ]

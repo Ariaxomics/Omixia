@@ -1,0 +1,26 @@
+[
+    {
+      "sample_assay_id": "SA_LUNG_001",
+      "callset_id": "CS_LUNG_001",
+      "chrom": "7",
+      "pos": 140453136,
+      "ref": "A",
+      "alt": "T",
+      "gene": "BRAF",
+      "hgvsp": "p.V600E",
+      "vaf": 0.23,
+      "depth": 310
+    },
+    {
+      "sample_assay_id": "SA_LUNG_001",
+      "callset_id": "CS_LUNG_001",
+      "chrom": "12",
+      "pos": 25398284,
+      "ref": "G",
+      "alt": "A",
+      "gene": "KRAS",
+      "hgvsp": "p.G12D",
+      "vaf": 0.12,
+      "depth": 280
+    }
+  ]

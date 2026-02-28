@@ -1,0 +1,9 @@
+[
+    {
+      "sample_assay_id": "SA_LUNG_001",
+      "sample_id": "LUNG-001",
+      "assay_id": "DNA_PANEL_V1",
+      "active_callset_id": "CS_LUNG_001",
+      "status": "ready"
+    }
+  ]

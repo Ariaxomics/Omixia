@@ -8,12 +8,15 @@ from flask_session import Session
 @dataclass
 class MongoExt:
     client: MongoClient | None = None
+    db_name: str | None = None
 
     def init_app(self, app: Flask) -> None:
         self.client = MongoClient(app.config["MONGO_URI"])
+        self.db_name = app.config["OMIXIA_DB_NAME"]
 
-    def db(self, app: Flask):
-        return self.client[app.config["OMIXIA_DB_NAME"]]
+    @property
+    def db(self):
+        return self.client[self.db_name]
 
 
 @dataclass

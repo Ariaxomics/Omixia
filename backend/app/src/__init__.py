@@ -1,9 +1,10 @@
 from flask import Flask
-from .config import Config
-from .extensions import mongo_client, redis_client, init_session
-from .blueprints.api.routes import api_bp
-from .blueprints.web.routes import web_bp
-from .db.indexes import ensure_indexes
+from src.config import Config
+from src.extensions import mongo_client, redis_client, init_session
+from src.blueprints.api_v1.routes import api_bp
+from src.blueprints.web.routes import web_bp
+from src.db.indexes import ensure_indexes
+from src.cli.load_demo import load_demo_data
 
 
 
@@ -14,6 +15,10 @@ def create_app():
     mongo_client.init_app(app)
     redis_client.init_app(app)
     init_session(app)
+
+    @app.cli.command("load-demo")
+    def load_demo():
+        load_demo_data(app)
 
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(web_bp)

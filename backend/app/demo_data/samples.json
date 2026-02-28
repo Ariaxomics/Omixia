@@ -1,0 +1,14 @@
+[
+    {
+      "sample_id": "LUNG-001",
+      "diagnosis_id": "NSCLC",
+      "disease_group": "solid",
+      "created_at": "2026-02-26T10:00:00Z"
+    },
+    {
+      "sample_id": "BREAST-001",
+      "diagnosis_id": "Breast_Adenocarcinoma",
+      "disease_group": "solid",
+      "created_at": "2026-02-26T11:00:00Z"
+    }
+  ]
