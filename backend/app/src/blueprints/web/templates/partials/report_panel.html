@@ -1,0 +1,150 @@
+<div class="mt-6">
+    <h3 class="text-xl font-semibold mb-4">Report</h3>
+
+    {% if error %}
+    <div class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+        <strong>Error:</strong> {{ error }}
+    </div>
+    {% endif %}
+
+    {% if not report %}
+    <!-- No active report -->
+    <div class="bg-white shadow rounded-lg p-6">
+        <p class="text-gray-600 mb-4">No active report for this case. Create a draft to begin the finalisation process.</p>
+        <form hx-post="/partials/sample-assays/{{ sample_assay_id }}/reports/create"
+              hx-target="#report-container"
+              hx-swap="innerHTML">
+            <button type="submit"
+                    class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                Create Draft Report
+            </button>
+        </form>
+    </div>
+
+    {% else %}
+
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+
+        <!-- Report header -->
+        <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+            <div>
+                <span class="text-sm font-mono text-gray-500">{{ report.report_id[:8] }}…</span>
+                <span class="ml-3 text-xs font-medium px-2 py-1 rounded-full
+                    {% if report.status == 'draft' %}bg-gray-100 text-gray-600
+                    {% elif report.status == 'pending_sign_off' %}bg-yellow-100 text-yellow-800
+                    {% elif report.status == 'finalised' %}bg-green-100 text-green-800
+                    {% elif report.status == 'delivered' %}bg-blue-100 text-blue-800
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ report.status | replace('_', ' ') | title }}
+                </span>
+                {% if report.report_type != 'primary' %}
+                <span class="ml-2 text-xs font-medium px-2 py-1 rounded-full bg-purple-100 text-purple-700">
+                    {{ report.report_type | title }}
+                </span>
+                {% endif %}
+            </div>
+            <span class="text-xs text-gray-400">Created {{ report.created_at[:10] }}</span>
+        </div>
+
+        <!-- Sign-offs -->
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h4 class="text-sm font-semibold text-gray-700 mb-3">
+                Sign-offs
+                <span class="ml-1 font-normal text-gray-400">({{ report.sign_offs | length }}/2 required)</span>
+            </h4>
+
+            {% if report.sign_offs %}
+            <ul class="space-y-1 mb-3">
+                {% for s in report.sign_offs %}
+                <li class="flex items-center text-sm text-gray-700">
+                    <svg class="w-4 h-4 text-green-500 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                    </svg>
+                    <span class="font-medium">{{ s.username }}</span>
+                    <span class="ml-1 text-gray-400">({{ s.role | replace('_', ' ') | title }})</span>
+                    <span class="ml-2 text-xs text-gray-400">{{ s.signed_at[:10] }}</span>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <p class="text-sm text-gray-400 mb-3">No sign-offs yet.</p>
+            {% endif %}
+
+            {% if report.status in ('draft', 'pending_sign_off') %}
+            {% set already_signed = report.sign_offs | selectattr('user_id', 'equalto', user.user_id) | list %}
+            {% if not already_signed %}
+            <form hx-post="/partials/reports/{{ report.report_id }}/sign-off"
+                  hx-target="#report-container"
+                  hx-swap="innerHTML">
+                <input type="hidden" name="sample_assay_id" value="{{ sample_assay_id }}">
+                <button type="submit"
+                        class="px-3 py-1.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+                    Add My Sign-off
+                </button>
+            </form>
+            {% else %}
+            <p class="text-xs text-gray-400">You have already signed this report.</p>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Preflight summary -->
+        {% if report.preflight_checks %}
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h4 class="text-sm font-semibold text-gray-700 mb-2">Preflight (at draft creation)</h4>
+            <ul class="space-y-1">
+                {% for c in report.preflight_checks %}
+                <li class="flex items-center text-xs">
+                    {% if c.status == 'pass' %}
+                    <span class="w-2 h-2 rounded-full bg-green-400 mr-2 flex-shrink-0"></span>
+                    <span class="text-gray-600">{{ c.description }}</span>
+                    {% else %}
+                    <span class="w-2 h-2 rounded-full bg-red-400 mr-2 flex-shrink-0"></span>
+                    <span class="text-red-700">{{ c.description }} — {{ c.detail }}</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <!-- Actions -->
+        <div class="px-6 py-4 flex flex-wrap gap-3">
+
+            {% if report.status == 'pending_sign_off' and user.role in ('senior_reviewer', 'lab_director') %}
+            <form hx-post="/partials/reports/{{ report.report_id }}/finalise"
+                  hx-target="#report-container"
+                  hx-swap="innerHTML"
+                  onsubmit="return confirm('Finalise this report? This will run preflight checks and lock the report.')">
+                <input type="hidden" name="sample_assay_id" value="{{ sample_assay_id }}">
+                <button type="submit"
+                        class="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700">
+                    Finalise Report
+                </button>
+            </form>
+            {% endif %}
+
+            {% if report.status in ('finalised', 'delivered') %}
+            <a href="/api/v1/reports/{{ report.report_id }}/export"
+               target="_blank"
+               class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 border border-gray-200">
+                Export JSON
+            </a>
+
+            {% if user.role in ('senior_reviewer', 'lab_director') %}
+            <form hx-post="/partials/sample-assays/{{ sample_assay_id }}/reports/create"
+                  hx-target="#report-container"
+                  hx-swap="innerHTML">
+                <button type="submit"
+                        class="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 border border-gray-200">
+                    Create Addendum
+                </button>
+            </form>
+            {% endif %}
+            {% endif %}
+
+        </div>
+
+    </div>
+    {% endif %}
+</div>

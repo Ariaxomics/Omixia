@@ -3,6 +3,7 @@ from flask import Blueprint, render_template, redirect, url_for, request, sessio
 from src.auth import current_user, current_username, require_login
 from src.services.biomarker import BiomarkerError, BiomarkerService
 from src.services.preflight import PreflightService
+from src.services.report import ReportError, ReportService
 from src.services.samples import ReviewError, SampleService
 from src.services.users import UserService
 
@@ -304,4 +305,97 @@ def preflight_partial(sample_assay_id):
         checks=checks,
         all_passed=all_passed,
         sample_assay_id=sample_assay_id,
+    )
+
+
+# ----------------------------
+# Report partials (Phase 6)
+# ----------------------------
+
+@web_bp.route("/partials/sample-assays/<sample_assay_id>/report")
+@require_login
+def report_partial(sample_assay_id):
+    report = ReportService.get_active_report(sample_assay_id)
+    user = current_user()
+    return render_template(
+        "partials/report_panel.html",
+        report=report,
+        sample_assay_id=sample_assay_id,
+        user=user,
+    )
+
+
+@web_bp.route("/partials/sample-assays/<sample_assay_id>/reports/create", methods=["POST"])
+@require_login
+def report_create(sample_assay_id):
+    user = current_user()
+    error = None
+    try:
+        ReportService.create_draft(
+            sample_assay_id,
+            created_by_user_id=user["user_id"],
+            created_by_username=user["username"],
+        )
+    except ReportError as e:
+        error = str(e)
+
+    report = ReportService.get_active_report(sample_assay_id)
+    return render_template(
+        "partials/report_panel.html",
+        report=report,
+        sample_assay_id=sample_assay_id,
+        user=user,
+        error=error,
+    )
+
+
+@web_bp.route("/partials/reports/<report_id>/sign-off", methods=["POST"])
+@require_login
+def report_signoff(report_id):
+    user = current_user()
+    error = None
+    sample_assay_id = request.form.get("sample_assay_id", "")
+    try:
+        ReportService.add_signoff(
+            report_id,
+            actor_user_id=user["user_id"],
+            actor_username=user["username"],
+            actor_role=user["role"],
+        )
+    except ReportError as e:
+        error = str(e)
+
+    report = ReportService.get_active_report(sample_assay_id)
+    return render_template(
+        "partials/report_panel.html",
+        report=report,
+        sample_assay_id=sample_assay_id,
+        user=user,
+        error=error,
+    )
+
+
+@web_bp.route("/partials/reports/<report_id>/finalise", methods=["POST"])
+@require_login
+def report_finalise(report_id):
+    user = current_user()
+    error = None
+    sample_assay_id = request.form.get("sample_assay_id", "")
+    try:
+        ReportService.finalise(
+            report_id,
+            actor_user_id=user["user_id"],
+            actor_username=user["username"],
+            actor_role=user["role"],
+        )
+    except ReportError as e:
+        error = str(e)
+
+    report = ReportService.get_active_report(sample_assay_id)
+    return render_template(
+        "partials/report_panel.html",
+        report=report,
+        sample_assay_id=sample_assay_id,
+        user=user,
+        error=error,
     )

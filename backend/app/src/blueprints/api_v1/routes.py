@@ -4,6 +4,7 @@ from src.auth import current_user, current_username, require_login, require_role
 from src.services.assay_config import AssayConfigService
 from src.services.biomarker import BiomarkerError, BiomarkerService
 from src.services.preflight import PreflightService
+from src.services.report import ReportError, ReportService
 from src.services.samples import ReviewError, SampleService
 
 
@@ -302,6 +303,101 @@ def confirm_biomarkers(sample_assay_id):
     except BiomarkerError as e:
         return jsonify({"error": str(e)}), 409
     return jsonify({"data": updated})
+
+
+# ----------------------------
+# Reports
+# ----------------------------
+
+@api_bp.route("/sample-assays/<sample_assay_id>/reports", methods=["GET"])
+@require_login
+def list_reports(sample_assay_id):
+    return jsonify({"data": ReportService.get_reports_for_assay(sample_assay_id)})
+
+
+@api_bp.route("/sample-assays/<sample_assay_id>/reports", methods=["POST"])
+@require_login
+def create_report(sample_assay_id):
+    user = current_user()
+    if not user:
+        return jsonify({"error": "Unauthorised"}), 401
+    try:
+        report = ReportService.create_draft(
+            sample_assay_id,
+            created_by_user_id=user["user_id"],
+            created_by_username=user["username"],
+        )
+    except ReportError as e:
+        return jsonify({"error": str(e)}), 409
+    return jsonify({"data": report}), 201
+
+
+@api_bp.route("/reports/<report_id>", methods=["GET"])
+@require_login
+def get_report(report_id):
+    report = ReportService.get_report(report_id)
+    if not report:
+        return jsonify({"error": "Report not found"}), 404
+    return jsonify({"data": report})
+
+
+@api_bp.route("/reports/<report_id>/sign-off", methods=["POST"])
+@require_login
+def sign_off_report(report_id):
+    user = current_user()
+    if not user:
+        return jsonify({"error": "Unauthorised"}), 401
+    try:
+        updated = ReportService.add_signoff(
+            report_id,
+            actor_user_id=user["user_id"],
+            actor_username=user["username"],
+            actor_role=user["role"],
+        )
+    except ReportError as e:
+        return jsonify({"error": str(e)}), 409
+    return jsonify({"data": updated})
+
+
+@api_bp.route("/reports/<report_id>/finalise", methods=["POST"])
+@require_role("senior_reviewer", "lab_director")
+def finalise_report(report_id):
+    user = current_user()
+    try:
+        updated = ReportService.finalise(
+            report_id,
+            actor_user_id=user["user_id"],
+            actor_username=user["username"],
+            actor_role=user["role"],
+        )
+    except ReportError as e:
+        return jsonify({"error": str(e)}), 409
+    return jsonify({"data": updated})
+
+
+@api_bp.route("/reports/<report_id>/export", methods=["GET"])
+@require_login
+def export_report_json(report_id):
+    try:
+        data = ReportService.export_json(report_id)
+    except ReportError as e:
+        return jsonify({"error": str(e)}), 404
+    return jsonify(data)
+
+
+@api_bp.route("/reports/<report_id>/addendum", methods=["POST"])
+@require_role("senior_reviewer", "lab_director")
+def create_addendum(report_id):
+    user = current_user()
+    try:
+        doc = ReportService.create_addendum(
+            report_id,
+            created_by_user_id=user["user_id"],
+            created_by_username=user["username"],
+        )
+    except ReportError as e:
+        return jsonify({"error": str(e)}), 409
+    return jsonify({"data": doc}), 201
 
 
 # ----------------------------

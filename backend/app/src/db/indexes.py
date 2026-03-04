@@ -31,3 +31,8 @@ def ensure_indexes(app: Flask) -> None:
 
     # Biomarkers
     db.biomarkers.create_index("sample_assay_id", unique=True)
+
+    # Reports
+    db.reports.create_index("report_id", unique=True)
+    db.reports.create_index("sample_assay_id")
+    db.reports.create_index([("sample_assay_id", 1), ("status", 1)])
