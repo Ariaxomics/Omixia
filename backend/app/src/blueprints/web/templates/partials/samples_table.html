@@ -1,0 +1,31 @@
+<div class="bg-white shadow rounded-lg overflow-hidden">
+    <table class="min-w-full divide-y divide-gray-200">
+        <thead>
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase">
+                    Sample ID
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium uppercase">
+                    Diagnosis
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for s in samples %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4">
+                    <a hx-get="/partials/samples/{{ s.sample_id }}/assays"
+                       hx-target="#assay-container"
+                       hx-swap="innerHTML"
+                       class="text-blue-600 cursor-pointer">
+                        {{ s.sample_id }}
+                    </a>
+                </td>
+                <td class="px-6 py-4">
+                    {{ s.diagnosis_id }}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>

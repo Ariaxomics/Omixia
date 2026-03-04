@@ -1,26 +1,64 @@
 [
-    {
-      "sample_assay_id": "SA_LUNG_001",
-      "callset_id": "CS_LUNG_001",
-      "chrom": "7",
-      "pos": 140453136,
-      "ref": "A",
-      "alt": "T",
-      "gene": "BRAF",
-      "hgvsp": "p.V600E",
-      "vaf": 0.23,
-      "depth": 310
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "callset_id": "CS_LUNG_001",
+    "chrom": "7",
+    "pos": 140453136,
+    "ref": "A",
+    "alt": "T",
+    "gene": "BRAF",
+    "hgvsp": "p.V600E",
+    "hgvsc": "c.1799T>A",
+    "consequence": "missense_variant",
+    "exon_number": "15",
+    "vaf": 0.23,
+    "depth": 310,
+    "annotation_version": "VEP_110",
+    "is_hotspot": true,
+    "gnomad_af": 0.000001,
+    "review_current": {
+      "status": "unreviewed",
+      "tier": null,
+      "is_artifact": false,
+      "interpretation": "",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "reviewer_role": null,
+      "consensus_status": "unreviewed",
+      "knowledge_entry_id": null,
+      "knowledge_snapshot": null
     },
-    {
-      "sample_assay_id": "SA_LUNG_001",
-      "callset_id": "CS_LUNG_001",
-      "chrom": "12",
-      "pos": 25398284,
-      "ref": "G",
-      "alt": "A",
-      "gene": "KRAS",
-      "hgvsp": "p.G12D",
-      "vaf": 0.12,
-      "depth": 280
-    }
-  ]
+    "review_history": []
+  },
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "callset_id": "CS_LUNG_001",
+    "chrom": "12",
+    "pos": 25398284,
+    "ref": "G",
+    "alt": "A",
+    "gene": "KRAS",
+    "hgvsp": "p.G12D",
+    "hgvsc": "c.35G>A",
+    "consequence": "missense_variant",
+    "exon_number": "2",
+    "vaf": 0.12,
+    "depth": 280,
+    "annotation_version": "VEP_110",
+    "is_hotspot": true,
+    "gnomad_af": 0.000002,
+    "review_current": {
+      "status": "unreviewed",
+      "tier": null,
+      "is_artifact": false,
+      "interpretation": "",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "reviewer_role": null,
+      "consensus_status": "unreviewed",
+      "knowledge_entry_id": null,
+      "knowledge_snapshot": null
+    },
+    "review_history": []
+  }
+]

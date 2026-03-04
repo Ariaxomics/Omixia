@@ -1,14 +1,18 @@
 [
-    {
-      "sample_id": "LUNG-001",
-      "diagnosis_id": "NSCLC",
-      "disease_group": "solid",
-      "created_at": "2026-02-26T10:00:00Z"
-    },
-    {
-      "sample_id": "BREAST-001",
-      "diagnosis_id": "Breast_Adenocarcinoma",
-      "disease_group": "solid",
-      "created_at": "2026-02-26T11:00:00Z"
-    }
-  ]
+  {
+    "sample_id": "LUNG-001",
+    "patient_pseudonym_id": "a3f1b2c4d5e6f7890abc123def456789abcdef1234567890abcdef1234567891",
+    "diagnosis_id": "NSCLC",
+    "disease_group": "solid",
+    "disease_subtype": "NSCLC",
+    "created_at": "2026-02-26T10:00:00Z"
+  },
+  {
+    "sample_id": "BREAST-001",
+    "patient_pseudonym_id": "b4e2c3d5e6f7a8901bcd234ef567890abcdef2345678901bcdef2345678902",
+    "diagnosis_id": "Breast_Adenocarcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Breast_Adenocarcinoma",
+    "created_at": "2026-02-26T11:00:00Z"
+  }
+]

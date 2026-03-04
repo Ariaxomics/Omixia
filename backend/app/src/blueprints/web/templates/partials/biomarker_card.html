@@ -1,0 +1,157 @@
+<div class="mt-6">
+    <h3 class="text-xl font-semibold mb-4">Biomarkers</h3>
+
+    {% if confirm_error %}
+    <div class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+        <strong>Error:</strong> {{ confirm_error }}
+    </div>
+    {% endif %}
+
+    {% if not biomarker %}
+    <div class="bg-white shadow rounded-lg p-8 text-center text-gray-500">
+        <p class="text-sm">No biomarker data available for this assay.</p>
+        <p class="text-xs mt-1 text-gray-400">MSI and TMB values are loaded automatically when a callset is imported.</p>
+    </div>
+    {% else %}
+
+    {% set confirmed = biomarker.review_status == 'confirmed' %}
+    {% set user = session.get('user') or {} %}
+
+    <!-- Two-column biomarker values -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+
+        <!-- MSI -->
+        <div class="bg-white shadow rounded-lg p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Microsatellite Instability</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-1">{{ "%.2f"|format(biomarker.msi_score) }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">MSI score</p>
+                </div>
+                <div>
+                    {% if biomarker.msi_classification == 'MSI-H' %}
+                        <span class="px-3 py-1 text-sm font-bold rounded-full bg-red-100 text-red-800">MSI-H</span>
+                    {% elif biomarker.msi_classification == 'MSI-L' %}
+                        <span class="px-3 py-1 text-sm font-bold rounded-full bg-yellow-100 text-yellow-800">MSI-L</span>
+                    {% else %}
+                        <span class="px-3 py-1 text-sm font-bold rounded-full bg-green-100 text-green-800">MSS</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-xs text-gray-400 border-t pt-2">
+                Thresholds: MSI-H ≥ {{ biomarker.msi_threshold_version.msi_high }},
+                MSI-L ≥ {{ biomarker.msi_threshold_version.msi_low }}
+            </div>
+        </div>
+
+        <!-- TMB -->
+        <div class="bg-white shadow rounded-lg p-5">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Tumour Mutational Burden</p>
+                    <p class="text-3xl font-bold text-gray-900 mt-1">{{ "%.1f"|format(biomarker.tmb_mut_per_mb) }}</p>
+                    <p class="text-xs text-gray-400 mt-0.5">mutations / Mb</p>
+                </div>
+                <div>
+                    {% if biomarker.tmb_classification == 'TMB-High' %}
+                        <span class="px-3 py-1 text-sm font-bold rounded-full bg-red-100 text-red-800">TMB-High</span>
+                    {% else %}
+                        <span class="px-3 py-1 text-sm font-bold rounded-full bg-gray-100 text-gray-600">TMB-Low</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="text-xs text-gray-400 border-t pt-2">
+                Threshold: {{ biomarker.tmb_threshold_version.label }} ≥ {{ biomarker.tmb_threshold_version.min_mut_per_mb }} mut/Mb
+                {% if biomarker.tmb_threshold_version.source %}
+                    ({{ biomarker.tmb_threshold_version.source }})
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Discordance warning -->
+    {% if biomarker.discordance_flag %}
+    <div class="mb-4 bg-amber-50 border border-amber-300 rounded-lg p-4">
+        <div class="flex items-start gap-3">
+            <svg class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <div>
+                <p class="text-sm font-semibold text-amber-800">
+                    Discordant result: {{ biomarker.msi_classification }} + {{ biomarker.tmb_classification }}
+                </p>
+                <p class="text-xs text-amber-700 mt-1">{{ biomarker.discordance_note }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Review status + confirm form -->
+    <div class="bg-white shadow rounded-lg p-5">
+        <div class="flex items-center justify-between mb-4">
+            <h4 class="font-medium text-gray-900">Biomarker Review</h4>
+            {% if confirmed %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Confirmed</span>
+            {% else %}
+                <span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Awaiting Review</span>
+            {% endif %}
+        </div>
+
+        {% if confirmed %}
+        <!-- Confirmed — show audit info -->
+        <div class="text-sm text-gray-600 space-y-1">
+            <p>Confirmed by <strong>{{ biomarker.reviewed_by }}</strong> on {{ biomarker.reviewed_at[:10] }}</p>
+            {% if biomarker.reviewer_note %}
+            <p class="text-gray-500 italic">"{{ biomarker.reviewer_note }}"</p>
+            {% endif %}
+            {% if biomarker.discordance_acknowledged %}
+            <p class="text-amber-600 text-xs">Discordance acknowledged at review.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <!-- Confirm form -->
+        <form hx-post="/partials/sample-assays/{{ sample_assay_id }}/biomarkers/confirm"
+              hx-target="#biomarker-container"
+              hx-swap="innerHTML"
+              class="space-y-4">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Reviewer Note <span class="font-normal text-gray-400">(optional)</span>
+                </label>
+                <input type="text" name="reviewer_note"
+                       class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                       placeholder="Any note about these biomarker results…">
+            </div>
+
+            {% if biomarker.discordance_flag %}
+            <div class="bg-amber-50 border border-amber-200 rounded p-3">
+                <label class="flex items-start gap-3 cursor-pointer">
+                    <input type="checkbox"
+                           name="discordance_acknowledged"
+                           value="true"
+                           required
+                           class="mt-0.5 h-4 w-4 text-amber-600 border-amber-300 rounded">
+                    <span class="text-sm text-amber-800">
+                        I acknowledge the discordance between
+                        <strong>{{ biomarker.msi_classification }}</strong> and
+                        <strong>{{ biomarker.tmb_classification }}</strong> and confirm
+                        both values will be reported with the standard explanatory note.
+                    </span>
+                </label>
+            </div>
+            {% else %}
+            <!-- Hidden field so form always submits discordance_acknowledged -->
+            <input type="hidden" name="discordance_acknowledged" value="false">
+            {% endif %}
+
+            <button type="submit"
+                    class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition text-sm font-medium">
+                Confirm Biomarkers
+            </button>
+        </form>
+        {% endif %}
+    </div>
+
+    {% endif %}
+</div>

@@ -1,0 +1,58 @@
+[
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "callset_id": "CS_LUNG_001",
+    "sv_id": "SV_LUNG_001_001",
+    "sv_type": "fusion",
+    "gene_5prime": "EML4",
+    "gene_3prime": "ALK",
+    "breakpoint_5prime": {"chrom": "chr2", "pos": 42522656},
+    "breakpoint_3prime": {"chrom": "chr2", "pos": 29446395},
+    "exon_5prime": 13,
+    "exon_3prime": 20,
+    "breakpoint_sensitivity": "exon_matters",
+    "is_novel_breakpoint": false,
+    "spanning_reads": 24,
+    "split_reads": 18,
+    "review_current": {
+      "status": "unreviewed",
+      "tier": null,
+      "is_artifact": false,
+      "interpretation": "",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "reviewer_role": null,
+      "consensus_status": "unreviewed",
+      "knowledge_entry_id": null
+    },
+    "review_history": []
+  },
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "callset_id": "CS_LUNG_001",
+    "sv_id": "SV_LUNG_001_002",
+    "sv_type": "fusion",
+    "gene_5prime": "RET",
+    "gene_3prime": "CCDC6",
+    "breakpoint_5prime": {"chrom": "chr10", "pos": 43609927},
+    "breakpoint_3prime": {"chrom": "chr10", "pos": 61665878},
+    "exon_5prime": 12,
+    "exon_3prime": 1,
+    "breakpoint_sensitivity": "gene_pair_sufficient",
+    "is_novel_breakpoint": true,
+    "spanning_reads": 6,
+    "split_reads": 4,
+    "review_current": {
+      "status": "unreviewed",
+      "tier": null,
+      "is_artifact": false,
+      "interpretation": "",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "reviewer_role": null,
+      "consensus_status": "unreviewed",
+      "knowledge_entry_id": null
+    },
+    "review_history": []
+  }
+]

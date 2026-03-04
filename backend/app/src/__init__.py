@@ -5,7 +5,7 @@ from src.blueprints.api_v1.routes import api_bp
 from src.blueprints.web.routes import web_bp
 from src.db.indexes import ensure_indexes
 from src.cli.load_demo import load_demo_data
-
+from src.cli.create_user import register_create_user_command
 
 
 def create_app():
@@ -19,6 +19,8 @@ def create_app():
     @app.cli.command("load-demo")
     def load_demo():
         load_demo_data(app)
+
+    register_create_user_command(app)
 
     app.register_blueprint(api_bp, url_prefix="/api")
     app.register_blueprint(web_bp)

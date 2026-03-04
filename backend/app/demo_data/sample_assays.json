@@ -1,9 +1,29 @@
 [
-    {
-      "sample_assay_id": "SA_LUNG_001",
-      "sample_id": "LUNG-001",
-      "assay_id": "DNA_PANEL_V1",
-      "active_callset_id": "CS_LUNG_001",
-      "status": "ready"
-    }
-  ]
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "sample_id": "LUNG-001",
+    "assay_id": "DNA_PANEL_V1",
+    "assay_version": "1.0",
+    "active_callset_id": "CS_LUNG_001",
+    "status": "review_in_progress",
+    "priority": "routine",
+    "assigned_reviewers": [],
+    "assigned_bioinformatician": null,
+    "sla_due_at": "2026-03-15T00:00:00Z",
+    "created_at": "2026-02-26T10:00:00Z",
+    "state_history": [
+      {
+        "status": "analysis_ready",
+        "timestamp": "2026-02-26T10:05:00Z",
+        "actor_user_id": "system",
+        "note": "QC passed — analysis ready"
+      },
+      {
+        "status": "review_in_progress",
+        "timestamp": "2026-02-26T10:10:00Z",
+        "actor_user_id": "system",
+        "note": "Review started"
+      }
+    ]
+  }
+]

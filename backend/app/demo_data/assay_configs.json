@@ -1,0 +1,32 @@
+[
+  {
+    "assay_id": "DNA_PANEL_V1",
+    "version": "1.0",
+    "gene_panel": [
+      {"gene": "BRAF", "chrom": "chr7", "start": 140453136, "end": 140453137, "min_depth": 100},
+      {"gene": "KRAS", "chrom": "chr12", "start": 25398284, "end": 25398285, "min_depth": 100},
+      {"gene": "EGFR", "chrom": "chr7", "start": 55191822, "end": 55191823, "min_depth": 100},
+      {"gene": "TP53", "chrom": "chr17", "start": 7674220, "end": 7674221, "min_depth": 100}
+    ],
+    "cnv_thresholds": {
+      "high_amplification": {"min_cn": 6},
+      "amplification": {"min_cn": 4},
+      "low_gain": {"min_cn": 3},
+      "loh": {"max_cn": 1},
+      "homozygous_deletion": {"max_cn": 0.5}
+    },
+    "msi_thresholds": {"msi_high": 3.5, "msi_low": 1.5},
+    "tmb_thresholds": [
+      {
+        "label": "TMB-High",
+        "min_mut_per_mb": 10,
+        "effective_from": "2024-01-01T00:00:00Z",
+        "source": "FDA companion dx"
+      }
+    ],
+    "sla_days": {"routine": 14, "urgent": 5},
+    "is_active": true,
+    "created_at": "2024-01-01T00:00:00Z",
+    "created_by": "system"
+  }
+]

@@ -22,12 +22,19 @@
         <a href="/about" class="hover:text-gray-300 transition">About</a>
     </div>
 
-    <div>
+    <div class="flex items-center space-x-3">
         {% if session.get('user') %}
+            <span class="text-gray-400 text-sm">{{ session['user']['username'] }}</span>
             <a href="/dashboard"
                class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">
                Dashboard
             </a>
+            <form action="/logout" method="post" class="inline">
+                <button type="submit"
+                        class="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600 transition text-sm">
+                    Logout
+                </button>
+            </form>
         {% else %}
             <a href="/login"
                class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">

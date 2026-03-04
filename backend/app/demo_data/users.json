@@ -1,0 +1,30 @@
+[
+  {
+    "username": "geneticist",
+    "email": "geneticist@demo.omixia",
+    "role": "reviewer",
+    "full_name": "Demo Reviewer",
+    "password": "omixia_demo_1"
+  },
+  {
+    "username": "senior",
+    "email": "senior@demo.omixia",
+    "role": "senior_reviewer",
+    "full_name": "Demo Senior Reviewer",
+    "password": "omixia_demo_1"
+  },
+  {
+    "username": "director",
+    "email": "director@demo.omixia",
+    "role": "lab_director",
+    "full_name": "Demo Lab Director",
+    "password": "omixia_demo_1"
+  },
+  {
+    "username": "bioinf",
+    "email": "bioinf@demo.omixia",
+    "role": "bioinformatician",
+    "full_name": "Demo Bioinformatician",
+    "password": "omixia_demo_1"
+  }
+]

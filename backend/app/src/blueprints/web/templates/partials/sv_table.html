@@ -1,0 +1,82 @@
+<div class="mt-6">
+    <h3 class="text-xl font-semibold mb-4">Structural Variants / Fusions</h3>
+
+    {% if review_error %}
+    <div class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+        <strong>Review error:</strong> {{ review_error }}
+    </div>
+    {% endif %}
+
+    {% if not svs %}
+    <p class="text-gray-500 text-sm">No SVs or fusions for this assay.</p>
+    {% else %}
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fusion / SV</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reads</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tier</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Consensus</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+            {% for v in svs %}
+                {% set rc = v.review_current or {} %}
+                {% set consensus = rc.get('consensus_status', 'unreviewed') %}
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {% if v.gene_5prime and v.gene_3prime %}
+                            {{ v.gene_5prime }}::{{ v.gene_3prime }}
+                            {% if v.exon_5prime and v.exon_3prime %}
+                            <span class="ml-1 text-gray-400 text-xs">e{{ v.exon_5prime }}–e{{ v.exon_3prime }}</span>
+                            {% endif %}
+                        {% else %}
+                            {{ v.sv_type | replace('_',' ') | title }}
+                        {% endif %}
+                        {% if v.is_novel_breakpoint %}
+                        <span class="ml-1 px-1 py-0.5 text-xs bg-yellow-100 text-yellow-700 rounded font-medium">Novel BP</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <span class="px-2 py-1 text-xs rounded-full bg-indigo-100 text-indigo-800 font-semibold">{{ v.sv_type | replace('_',' ') | title }}</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                        {{ v.spanning_reads + v.split_reads }} total
+                        <span class="text-gray-400 text-xs">({{ v.spanning_reads }}sp / {{ v.split_reads }}sl)</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if rc.get('tier') %}
+                            {% if rc.tier == 'tier_1' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Tier 1</span>
+                            {% elif rc.tier == 'tier_2' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Tier 2</span>
+                            {% elif rc.tier == 'tier_3' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Tier 3</span>
+                            {% elif rc.tier == 'tier_4' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Tier 4</span>
+                            {% endif %}
+                        {% else %}<span class="text-gray-400">—</span>{% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        {% if consensus == 'unreviewed' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">Unreviewed</span>
+                        {% elif consensus == 'pending_second_review' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Awaiting 2nd</span>
+                        {% elif consensus == 'concordant' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Concordant</span>
+                        {% elif consensus in ('discordant','escalated') %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Discordant</span>
+                        {% elif consensus == 'resolved' %}<span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Resolved</span>
+                        {% endif %}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button hx-get="/partials/sample-assays/{{ v.sample_assay_id }}/svs/{{ v.sv_id }}/detail"
+                                hx-target="#sv-detail-{{ loop.index }}"
+                                hx-swap="innerHTML"
+                                class="text-blue-600 hover:text-blue-800 font-medium">
+                            {% if consensus in ('concordant','resolved') %}View{% else %}Review{% endif %}
+                        </button>
+                    </td>
+                </tr>
+                <tr id="sv-detail-{{ loop.index }}" class="bg-gray-50"></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>

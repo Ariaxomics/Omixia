@@ -1,0 +1,21 @@
+[
+  {
+    "sample_assay_id": "SA_LUNG_001",
+    "callset_id": "CS_LUNG_001",
+    "msi_score": 4.2,
+    "msi_classification": "MSI-H",
+    "msi_threshold_version": {"msi_high": 3.5, "msi_low": 1.5},
+    "tmb_mut_per_mb": 6.8,
+    "tmb_classification": "TMB-Low",
+    "tmb_threshold_version": {"label": "TMB-High", "min_mut_per_mb": 10, "effective_from": "2024-01-01T00:00:00Z", "source": "FDA companion dx"},
+    "discordance_flag": true,
+    "discordance_note": "MSI-H with TMB-Low detected. MSI and TMB measure different aspects of genomic instability and use independent algorithms. MSI reflects instability at microsatellite loci; TMB reflects total somatic mutation burden per megabase. Divergence is biologically possible and does not indicate an error. Both values should be reported with this explanatory note.",
+    "review_status": "unreviewed",
+    "reviewed_by": null,
+    "reviewed_by_id": null,
+    "reviewed_at": null,
+    "reviewer_note": "",
+    "discordance_acknowledged": false,
+    "classified_at": "2026-02-26T10:05:00Z"
+  }
+]

@@ -202,3 +202,7 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+CLAUDE_API_KEY
+CLAUDE.md
+SPEC.md
