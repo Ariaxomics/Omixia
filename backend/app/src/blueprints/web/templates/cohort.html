@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+
+    <h1 class="text-2xl font-bold text-gray-900">Cohort Query</h1>
+    <p class="text-sm text-gray-500">
+        Query variants across all cases. Results are for informational review only.
+    </p>
+
+    <!-- Query form -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form id="cohort-form"
+              hx-get="/partials/cohort/query"
+              hx-target="#cohort-result"
+              hx-swap="innerHTML"
+              class="space-y-4">
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Gene symbol</label>
+                    <input type="text" name="gene" placeholder="e.g. KRAS"
+                           class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Variant type</label>
+                    <select name="variant_type"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">— Any —</option>
+                        <option value="snv">SNV / Indel</option>
+                        <option value="cnv">CNV</option>
+                        <option value="sv">SV / Fusion</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Tier</label>
+                    <select name="tier"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">— Any —</option>
+                        <option value="tier_1">Tier 1</option>
+                        <option value="tier_2">Tier 2</option>
+                        <option value="tier_3">Tier 3</option>
+                        <option value="tier_4">Tier 4</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-medium text-gray-600 mb-1">Assay (optional)</label>
+                    <select name="assay_id"
+                            class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <option value="">— All assay versions —</option>
+                        {% for av in assay_versions %}
+                        <option value="{{ av.assay_id }}">{{ av.assay_id }} v{{ av.version }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex gap-3 items-center">
+                <button type="submit"
+                        class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm">
+                    Run Query
+                </button>
+                <span class="text-xs text-gray-400">At least one filter is required.</span>
+            </div>
+        </form>
+    </div>
+
+    <div id="cohort-result"></div>
+
+</div>
+{% endblock %}

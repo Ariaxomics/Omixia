@@ -2,10 +2,16 @@ from flask import Blueprint, jsonify, request, session
 
 from src.auth import current_user, current_username, require_login, require_role
 from src.services.assay_config import AssayConfigService
+from src.services.ingestion import IngestionError, IngestionService
 from src.services.biomarker import BiomarkerError, BiomarkerService
+from src.services.federation import FederationError, FederationService
+from src.services.gap_analysis import CohortService, GapAnalysisService
+from src.services.knowledge import KnowledgeError, KnowledgeService
+from src.services.portal import PortalError, PortalService
 from src.services.preflight import PreflightService
 from src.services.report import ReportError, ReportService
 from src.services.samples import ReviewError, SampleService
+from src.services.tat import TATService
 
 
 api_bp = Blueprint("api", __name__)
@@ -401,6 +407,91 @@ def create_addendum(report_id):
 
 
 # ----------------------------
+# Knowledge Database
+# ----------------------------
+
+@api_bp.route("/knowledge", methods=["GET"])
+@require_login
+def list_knowledge():
+    entries = KnowledgeService.list_entries(
+        gene=request.args.get("gene", ""),
+        variant_type=request.args.get("variant_type", ""),
+        tier=request.args.get("tier", ""),
+        disease_group=request.args.get("disease_group", ""),
+        disease_subtype=request.args.get("disease_subtype", ""),
+    )
+    return jsonify({"data": entries})
+
+
+@api_bp.route("/knowledge/search", methods=["GET"])
+@require_login
+def search_knowledge():
+    q = request.args.get("q", "").strip()
+    if not q:
+        return jsonify({"error": "Query parameter 'q' is required"}), 400
+    try:
+        results = KnowledgeService.search(
+            q,
+            filters={
+                "gene": request.args.get("gene"),
+                "tier": request.args.get("tier"),
+                "disease_group": request.args.get("disease_group"),
+            },
+        )
+    except KnowledgeError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"data": results})
+
+
+@api_bp.route("/knowledge", methods=["POST"])
+@require_role("senior_reviewer", "lab_director")
+def create_knowledge():
+    data = request.get_json() or {}
+    user = current_user()
+    try:
+        entry = KnowledgeService.create_entry(data, user["user_id"], user["username"])
+    except KnowledgeError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"data": entry}), 201
+
+
+@api_bp.route("/knowledge/<knowledge_id>", methods=["GET"])
+@require_login
+def get_knowledge(knowledge_id):
+    entry = KnowledgeService.get_entry(knowledge_id)
+    if not entry:
+        return jsonify({"error": "Knowledge entry not found"}), 404
+    return jsonify({"data": entry})
+
+
+@api_bp.route("/knowledge/<knowledge_id>", methods=["PUT"])
+@require_role("senior_reviewer", "lab_director")
+def update_knowledge(knowledge_id):
+    data = request.get_json() or {}
+    user = current_user()
+    try:
+        updated = KnowledgeService.update_entry(
+            knowledge_id, data, user["user_id"], user["username"],
+            change_note=data.get("change_note", ""),
+        )
+    except KnowledgeError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"data": updated})
+
+
+@api_bp.route("/knowledge/lookup/snv", methods=["GET"])
+@require_login
+def lookup_snv_knowledge():
+    gene = request.args.get("gene", "")
+    hgvsp = request.args.get("hgvsp", "")
+    disease_subtype = request.args.get("disease_subtype") or None
+    if not gene or not hgvsp:
+        return jsonify({"error": "gene and hgvsp are required"}), 400
+    entry = KnowledgeService.lookup_for_snv(gene, hgvsp, disease_subtype)
+    return jsonify({"data": entry})
+
+
+# ----------------------------
 # Summary
 # ----------------------------
 
@@ -411,3 +502,142 @@ def get_summary(sample_assay_id):
         return jsonify({"error": "Summary not found"}), 404
 
     return jsonify({"data": summary})
+
+# ----------------------------
+# TAT / Lab Dashboard (Phase 7)
+# ----------------------------
+
+@api_bp.route("/lab/dashboard", methods=["GET"])
+@require_role("lab_director", "senior_reviewer")
+def lab_dashboard_api():
+    return jsonify({"data": TATService.dashboard_stats()})
+
+
+# ----------------------------
+# Gap Analysis (Phase 7)
+# ----------------------------
+
+@api_bp.route("/gap-analysis", methods=["GET"])
+@require_role("lab_director")
+def gap_analysis_api():
+    gene = request.args.get("gene", "").strip()
+    assay_id = request.args.get("assay_id", "").strip() or None
+    if not gene:
+        return jsonify({"error": "gene parameter required"}), 400
+    return jsonify({"data": GapAnalysisService.query_gene_coverage(gene, assay_id)})
+
+
+# ----------------------------
+# Cohort Query (Phase 7)
+# ----------------------------
+
+@api_bp.route("/cohort", methods=["GET"])
+@require_login
+def cohort_query_api():
+    result = CohortService.query(
+        gene=request.args.get("gene", ""),
+        tier=request.args.get("tier", ""),
+        variant_type=request.args.get("variant_type", ""),
+        assay_id=request.args.get("assay_id", ""),
+        acknowledge_multi_version=request.args.get("acknowledge") == "1",
+    )
+    return jsonify({"data": result})
+
+
+# ----------------------------
+# Portal Token Management (Phase 7)
+# ----------------------------
+
+@api_bp.route("/reports/<report_id>/portal-token", methods=["POST"])
+@require_role("lab_director", "senior_reviewer")
+def issue_portal_token(report_id):
+    user = current_user()
+    try:
+        token_doc = PortalService.issue_token(report_id, user["user_id"], user["username"])
+    except PortalError as e:
+        return jsonify({"error": str(e)}), 409
+    portal_url = f"/portal/access/{token_doc['token']}"
+    return jsonify({"data": {"portal_url": portal_url, "expires_at": token_doc["expires_at"]}}), 201
+
+
+# ----------------------------
+# Federation (Phase 7)
+# ----------------------------
+
+@api_bp.route("/federation/export", methods=["POST"])
+@require_role("lab_director")
+def federation_export_api():
+    user = current_user()
+    data = request.get_json() or {}
+    lab_id = data.get("lab_id", "").strip()
+    if not lab_id:
+        return jsonify({"error": "lab_id is required"}), 400
+    try:
+        export = FederationService.build_export(lab_id, user["user_id"], user["username"])
+    except FederationError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"data": {k: v for k, v in export.items() if k != "entries"}}), 201
+
+
+@api_bp.route("/federation/import", methods=["POST"])
+@require_role("lab_director")
+def federation_import_api():
+    user = current_user()
+    payload = request.get_json() or {}
+    try:
+        result = FederationService.import_from_registry(payload, user["username"])
+    except FederationError as e:
+        return jsonify({"error": str(e)}), 422
+    return jsonify({"data": result})
+
+
+@api_bp.route("/federation/exports", methods=["GET"])
+@require_role("lab_director")
+def list_federation_exports():
+    return jsonify({"data": FederationService.list_exports()})
+
+
+# ----------------------------
+# Callsets / Ingestion (Phase 4)
+# ----------------------------
+
+@api_bp.route("/sample-assays/<sample_assay_id>/callsets", methods=["GET"])
+@require_login
+def list_callsets(sample_assay_id):
+    return jsonify({"data": IngestionService.get_callsets(sample_assay_id)})
+
+
+@api_bp.route("/callsets/<callset_id>", methods=["GET"])
+@require_login
+def get_callset(callset_id):
+    callset = IngestionService.get_callset(callset_id)
+    if not callset:
+        return jsonify({"error": "Callset not found"}), 404
+    return jsonify({"data": callset})
+
+
+@api_bp.route("/sample-assays/<sample_assay_id>/callsets/import", methods=["POST"])
+@require_role("bioinformatician", "lab_director")
+def import_callset(sample_assay_id):
+    """
+    Trigger a VCF import via API (dev / testing only — skips normalisation and annotation).
+    Body: { "vcf_path": "...", "qc_json_path": "...", "skip_normalise": true, "skip_annotate": true }
+    """
+    user = current_user()
+    data = request.get_json() or {}
+    vcf_path = data.get("vcf_path", "")
+    if not vcf_path:
+        return jsonify({"error": "vcf_path is required"}), 400
+    try:
+        callset = IngestionService.import_vcf(
+            vcf_path=vcf_path,
+            qc_json_path=data.get("qc_json_path"),
+            sample_assay_id=sample_assay_id,
+            imported_by_user_id=user["user_id"],
+            imported_by_username=user["username"],
+            skip_normalise=data.get("skip_normalise", False),
+            skip_annotate=data.get("skip_annotate", False),
+        )
+    except IngestionError as exc:
+        return jsonify({"error": str(exc)}), 422
+    return jsonify({"data": callset}), 201

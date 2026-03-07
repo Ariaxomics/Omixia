@@ -32,7 +32,34 @@ def ensure_indexes(app: Flask) -> None:
     # Biomarkers
     db.biomarkers.create_index("sample_assay_id", unique=True)
 
+    # Callsets
+    db.callsets.create_index("callset_id", unique=True)
+    db.callsets.create_index("sample_assay_id")
+    db.callsets.create_index("vcf_checksum")
+    db.callsets.create_index([("sample_assay_id", 1), ("import_status", 1)])
+
     # Reports
     db.reports.create_index("report_id", unique=True)
     db.reports.create_index("sample_assay_id")
     db.reports.create_index([("sample_assay_id", 1), ("status", 1)])
+
+    # Variant Knowledge
+    db.variant_knowledge.create_index("knowledge_id", unique=True)
+    db.variant_knowledge.create_index([("variant_type", 1), ("gene", 1)])
+    db.variant_knowledge.create_index([("variant_type", 1), ("gene", 1), ("hgvsp", 1), ("disease_subtype", 1)])
+    db.variant_knowledge.create_index([("variant_type", 1), ("gene_5prime", 1), ("gene_3prime", 1)])
+    # Text index for full-text search on interpretation and evidence_summary
+    db.variant_knowledge.create_index(
+        [("interpretation", "text"), ("evidence_summary", "text")],
+        name="knowledge_text_search",
+    )
+
+    # Report access tokens (physician portal)
+    db.report_access_tokens.create_index("token", unique=True)
+    db.report_access_tokens.create_index("report_id")
+    db.report_access_tokens.create_index([("report_id", 1), ("revoked", 1)])
+
+    # Federation exports
+    db.federation_exports.create_index("export_id", unique=True)
+    db.federation_exports.create_index("target_lab_id")
+    db.federation_exports.create_index("exported_at")

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="space-y-6">
+
+    <h1 class="text-2xl font-bold text-gray-900">Assay Gap Analysis</h1>
+    <p class="text-sm text-gray-500">
+        Query whether a gene is covered by a given assay panel version, and find cases where it is not.
+        This is read-only; results do not modify any records.
+    </p>
+
+    <!-- Query form -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <form hx-get="/partials/gap-analysis"
+              hx-target="#gap-result"
+              hx-swap="innerHTML"
+              class="flex flex-wrap gap-4 items-end">
+
+            <div class="flex-1 min-w-[160px]">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Gene symbol</label>
+                <input type="text" name="gene" placeholder="e.g. BRCA1"
+                       class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+                       required>
+            </div>
+
+            <div class="flex-1 min-w-[180px]">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Assay (optional)</label>
+                <select name="assay_id"
+                        class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <option value="">— All assay versions —</option>
+                    {% for av in assay_versions %}
+                    <option value="{{ av.assay_id }}">{{ av.assay_id }} v{{ av.version }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button type="submit"
+                    class="bg-blue-600 text-white px-5 py-2 rounded hover:bg-blue-700 text-sm">
+                Run Query
+            </button>
+        </form>
+    </div>
+
+    <div id="gap-result"></div>
+
+</div>
+{% endblock %}

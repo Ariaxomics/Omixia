@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Omixia — Physician Report Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center">
+
+<div class="w-full max-w-md">
+
+    <div class="text-center mb-8">
+        <h1 class="text-2xl font-bold text-gray-900">Omixia</h1>
+        <p class="text-gray-500 text-sm mt-1">Clinical Report Portal</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-8">
+
+        {% if error %}
+        <div class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">
+            {{ error }}
+        </div>
+        {% endif %}
+
+        <p class="text-gray-600 text-sm mb-6">
+            To access your patient's report, please use the secure link provided to you by the laboratory.
+            If you have not received a link, contact the laboratory directly.
+        </p>
+
+        <p class="text-gray-400 text-xs text-center">
+            This portal provides read-only access to finalised laboratory reports.<br>
+            For clinical questions, contact the reporting laboratory.
+        </p>
+
+    </div>
+
+</div>
+
+</body>
+</html>

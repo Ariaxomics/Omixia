@@ -1,7 +1,55 @@
 # Omixia
 
-### Omics X AI for the interpretation and reporting of data
-### More documentaiton in wiki
+**Clinical Somatic Variant Interpretation & Reporting Platform**
 
+Omixia supports SNV, CNV, SV, MSI, and TMB analysis with a multi-reviewer consensus workflow, structured evidence support, report generation, and federated knowledge sharing.
 
+## Documentation
 
+- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** — full architecture, feature reference, API reference, CLI commands, configuration
+- **[Product Specification](SPEC.md)** — requirements and design decisions
+
+## Stack
+
+| Layer | Technology |
+|---|---|
+| Backend | Flask 3.x, Python 3.12 |
+| Database | MongoDB 7 |
+| Cache / Sessions | Redis 7 |
+| Frontend | Jinja2 + Tailwind CSS + HTMX |
+
+## Quick Start
+
+```bash
+cd backend
+
+# Install dependencies
+pip install -r app/requirements.txt
+
+# Load demo data
+flask load-demo
+
+# Run the dev server
+flask run
+```
+
+Demo credentials (password: `omixia_demo_1`):
+
+| Username | Role |
+|---|---|
+| `geneticist` | reviewer |
+| `senior` | senior_reviewer |
+| `director` | lab_director |
+| `bioinf` | bioinformatician |
+
+## Implemented Phases
+
+| Phase | Feature Area | Status |
+|---|---|---|
+| 1 | Foundation — users, roles, assay config, audit log | Done |
+| 2 | Core Review Workflow — two-reviewer consensus, bypass, case assignment | Done |
+| 3 | Variant Types — CNV, SV/fusion, MSI/TMB biomarkers | Done |
+| 4 | Data Ingestion — VCF import, bcftools norm, VEP, QC gate, callset versioning | Done |
+| 5 | Knowledge Database — variant knowledge CRUD, evidence panel, full-text search | Done |
+| 6 | Report Generation — snapshot, preflight checklist, sign-offs, JSON export | Done |
+| 7 | Advanced Features — TAT/SLA dashboard, physician portal, gap analysis, cohort query, federated knowledge | Done |

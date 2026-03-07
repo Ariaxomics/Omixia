@@ -49,6 +49,7 @@ def load_demo_data(app):
         load_collection(db, "cnvs_raw", "demo_data/cnvs_raw.json")
         load_collection(db, "svs_raw", "demo_data/svs_raw.json")
         load_collection(db, "biomarkers", "demo_data/biomarkers.json")
+        load_collection(db, "variant_knowledge", "demo_data/variant_knowledge.json")
         load_users(db, "demo_data/users.json")
 
         print("Demo data loaded successfully.")

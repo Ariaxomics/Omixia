@@ -1,0 +1,97 @@
+{% if error %}
+<div class="mb-3 bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded text-sm">{{ error }}</div>
+{% endif %}
+
+{% if callsets %}
+<div class="space-y-3">
+    {% for cs in callsets %}
+    <div class="border rounded-lg p-4 {% if cs.is_active %}border-blue-200 bg-blue-50{% else %}border-gray-200 bg-white{% endif %}">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+                <span class="font-mono text-sm font-semibold text-gray-800">{{ cs.callset_id }}</span>
+                {% if cs.is_active %}
+                <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-semibold">Active</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-2">
+                <!-- Import status badge -->
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+                    {% if cs.import_status == 'imported' %}bg-green-100 text-green-800
+                    {% elif cs.import_status == 'failed' %}bg-red-100 text-red-800
+                    {% elif cs.import_status in ('normalising', 'annotating') %}bg-yellow-100 text-yellow-700
+                    {% elif cs.import_status == 'superseded' %}bg-gray-100 text-gray-500
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ cs.import_status | replace('_', ' ') | title }}
+                </span>
+                <!-- QC status badge -->
+                {% if cs.import_status == 'imported' %}
+                <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+                    {% if cs.qc_status == 'passed' %}bg-green-100 text-green-800
+                    {% elif cs.qc_status == 'failed' %}bg-red-100 text-red-800
+                    {% elif cs.qc_status == 'borderline' %}bg-amber-100 text-amber-700
+                    {% else %}bg-gray-100 text-gray-500{% endif %}">
+                    QC: {{ cs.qc_status | title }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- QC metrics -->
+        {% if cs.qc_metrics %}
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-600 mb-2">
+            {% if cs.qc_metrics.mean_depth is defined %}
+            <div><span class="text-gray-400">Mean depth</span><br>
+                <span class="font-semibold text-gray-800">{{ "%.0f"|format(cs.qc_metrics.mean_depth) }}×</span>
+            </div>
+            {% endif %}
+            {% if cs.qc_metrics.pct_bases_100x is defined %}
+            <div><span class="text-gray-400">≥100x bases</span><br>
+                <span class="font-semibold text-gray-800">{{ "%.1f"|format(cs.qc_metrics.pct_bases_100x) }}%</span>
+            </div>
+            {% endif %}
+            {% if cs.qc_metrics.contamination_estimate is defined %}
+            <div><span class="text-gray-400">Contamination</span><br>
+                <span class="font-semibold text-gray-800">{{ "%.3f"|format(cs.qc_metrics.contamination_estimate) }}</span>
+            </div>
+            {% endif %}
+            {% if cs.qc_metrics.tumor_purity is defined %}
+            <div><span class="text-gray-400">Tumour purity</span><br>
+                <span class="font-semibold text-gray-800">{{ "%.2f"|format(cs.qc_metrics.tumor_purity) }}</span>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- QC failures -->
+        {% if cs.qc_failures %}
+        <div class="mt-1 space-y-0.5">
+            {% for f in cs.qc_failures %}
+            <p class="text-xs text-red-700">⚠ {{ f }}</p>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Import error -->
+        {% if cs.import_error %}
+        <p class="text-xs text-red-600 mt-1">Error: {{ cs.import_error }}</p>
+        {% endif %}
+
+        <!-- Variant counts + metadata -->
+        <div class="flex items-center gap-4 mt-2 text-xs text-gray-500">
+            {% if cs.raw_counts %}
+            <span>SNVs: {{ cs.raw_counts.get('snv', 0) }}</span>
+            <span>CNVs: {{ cs.raw_counts.get('cnv', 0) }}</span>
+            <span>SVs: {{ cs.raw_counts.get('sv', 0) }}</span>
+            {% endif %}
+            <span>Imported: {{ cs.created_at[:10] if cs.created_at else '—' }}</span>
+            <span>By: {{ cs.get('imported_by_username', '—') }}</span>
+            {% if cs.annotation_vep_version and cs.annotation_vep_version != 'skipped' %}
+            <span>VEP: {{ cs.annotation_vep_version[:30] }}</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-sm text-gray-500 py-4 text-center">No callsets for this case yet.</p>
+{% endif %}

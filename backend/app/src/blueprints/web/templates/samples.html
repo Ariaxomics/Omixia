@@ -16,75 +16,100 @@
 <!-- Assay Container -->
 <div id="assay-container" class="mt-8"></div>
 
-<!-- Variant tabs — shown once an assay is selected -->
+<!-- Variant tabs -->
 <div id="variant-tabs-container" class="mt-8 hidden">
-    <div class="border-b border-gray-200 mb-0">
-        <nav class="-mb-px flex space-x-6" aria-label="Tabs">
-            <button onclick="showTab('snv')"
-                    id="tab-snv"
+
+    <div class="border-b border-gray-200">
+        <nav class="-mb-px flex space-x-6">
+
+            <button onclick="loadTab('snv')" id="tab-snv"
                     class="tab-btn border-b-2 border-blue-500 text-blue-600 px-1 pb-3 text-sm font-medium">
                 SNVs
             </button>
-            <button onclick="showTab('cnv')"
-                    id="tab-cnv"
+
+            <button onclick="loadTab('cnv')" id="tab-cnv"
                     class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
                 CNVs
             </button>
-            <button onclick="showTab('sv')"
-                    id="tab-sv"
+
+            <button onclick="loadTab('sv')" id="tab-sv"
                     class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
                 Fusions / SVs
             </button>
-            <button onclick="showTab('preflight')"
-                    id="tab-preflight"
+
+            <button onclick="loadTab('preflight')" id="tab-preflight"
                     class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
                 Preflight
             </button>
-            <button onclick="showTab('biomarker')"
-                    id="tab-biomarker"
+
+            <button onclick="loadTab('biomarker')" id="tab-biomarker"
                     class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
                 Biomarkers
             </button>
-            <button onclick="showTab('report')"
-                    id="tab-report"
-                    class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
+            
+            <button onclick="loadTab('report')" id="tab-report"
+                class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
                 Report
             </button>
+
+            <button onclick="loadTab('callset')" id="tab-callset"
+                class="tab-btn border-b-2 border-transparent text-gray-500 hover:text-gray-700 px-1 pb-3 text-sm font-medium">
+                Callsets
+            </button>
+
         </nav>
     </div>
 
-    <div id="snv-container" class="variant-tab-panel"></div>
-    <div id="cnv-container" class="variant-tab-panel hidden"></div>
-    <div id="sv-container" class="variant-tab-panel hidden"></div>
-    <div id="preflight-container" class="variant-tab-panel hidden"></div>
-    <div id="biomarker-container" class="variant-tab-panel hidden"></div>
-    <div id="report-container" class="variant-tab-panel hidden"></div>
+    <!-- Single content container -->
+    <div id="variant-content" class="mt-6"></div>
+
 </div>
 
 <script>
-function showTab(name) {
-    document.querySelectorAll('.variant-tab-panel').forEach(p => p.classList.add('hidden'));
+
+let currentSampleAssayId = null;
+
+function activateVariantTabs(sampleAssayId) {
+    currentSampleAssayId = sampleAssayId;
+    document.getElementById('variant-tabs-container').classList.remove('hidden');
+    loadTab('snv');  // load default tab
+}
+
+const TAB_PATHS = {
+    snv:        'snvs',
+    cnv:        'cnvs',
+    sv:         'svs',
+    preflight:  'preflight',
+    biomarker:  'biomarkers',
+    report:     'report',
+    callset:    'callsets',
+};
+
+function loadTab(name) {
+
+    if (!currentSampleAssayId) return;
+
+    // Update tab styling
     document.querySelectorAll('.tab-btn').forEach(b => {
         b.classList.remove('border-blue-500', 'text-blue-600');
         b.classList.add('border-transparent', 'text-gray-500');
     });
-    document.getElementById(name + '-container').classList.remove('hidden');
+
     const btn = document.getElementById('tab-' + name);
     btn.classList.remove('border-transparent', 'text-gray-500');
     btn.classList.add('border-blue-500', 'text-blue-600');
+
+    const path = TAB_PATHS[name] || (name + 's');
+    htmx.ajax(
+        'GET',
+        '/partials/sample-assays/' + currentSampleAssayId + '/' + path,
+        {
+            target: '#variant-content',
+            swap: 'innerHTML'
+        }
+    );
 }
 
-// Called by the assays table when an assay is selected
-function activateVariantTabs(sampleAssayId) {
-    document.getElementById('variant-tabs-container').classList.remove('hidden');
-    showTab('snv');
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/snvs', {target: '#snv-container', swap: 'innerHTML'});
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/cnvs', {target: '#cnv-container', swap: 'innerHTML'});
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/svs', {target: '#sv-container', swap: 'innerHTML'});
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/preflight', {target: '#preflight-container', swap: 'innerHTML'});
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/biomarkers', {target: '#biomarker-container', swap: 'innerHTML'});
-    htmx.ajax('GET', '/partials/sample-assays/' + sampleAssayId + '/report', {target: '#report-container', swap: 'innerHTML'});
-}
 </script>
 
 {% endblock %}

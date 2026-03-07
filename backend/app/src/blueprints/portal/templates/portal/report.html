@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Omixia — Clinical Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<nav class="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+    <div>
+        <span class="text-xl font-bold">Omixia</span>
+        <span class="ml-3 text-sm text-gray-400">Physician Report Portal</span>
+    </div>
+    <form action="/portal/logout" method="post">
+        <button type="submit" class="bg-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-600">
+            End Session
+        </button>
+    </form>
+</nav>
+
+<main class="max-w-5xl mx-auto px-6 py-10 space-y-8">
+
+    <!-- Report header -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex items-start justify-between">
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900">Clinical Genomics Report</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Report ID: <span class="font-mono">{{ report.report_id[:8] }}…</span>
+                    &nbsp;·&nbsp; Generated: {{ report.get('finalised_at', report.created_at)[:10] }}
+                </p>
+            </div>
+            <span class="px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                {{ report.status | title }}
+            </span>
+        </div>
+    </div>
+
+    <!-- Sample / Assay Info -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Case Information</h2>
+        <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+                <span class="text-gray-500">Patient ID (pseudonymised):</span>
+                <span class="ml-2 font-medium text-gray-900">{{ sample.get('patient_pseudonym_id', '—') }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Diagnosis:</span>
+                <span class="ml-2 font-medium text-gray-900">{{ sample.get('disease_subtype', sample.get('disease_group', '—')) }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Assay:</span>
+                <span class="ml-2 font-medium text-gray-900">{{ assay.get('assay_id', '—') }} v{{ assay.get('assay_version', '—') }}</span>
+            </div>
+            <div>
+                <span class="text-gray-500">Sample ID:</span>
+                <span class="ml-2 font-mono text-gray-700">{{ sample.get('sample_id', '—') }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Biomarkers -->
+    {% if biomarkers %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Tumour Biomarkers</h2>
+        <div class="grid grid-cols-3 gap-4 text-sm">
+            {% if biomarkers.msi_classification %}
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <div class="text-xs text-gray-500 mb-1">MSI Status</div>
+                <div class="text-xl font-bold
+                    {% if biomarkers.msi_classification == 'MSI-H' %}text-red-700
+                    {% else %}text-gray-800{% endif %}">
+                    {{ biomarkers.msi_classification }}
+                </div>
+                <div class="text-xs text-gray-400 mt-0.5">Score: {{ "%.2f"|format(biomarkers.msi_score) }}</div>
+            </div>
+            {% endif %}
+            {% if biomarkers.tmb_classification %}
+            <div class="bg-gray-50 rounded-lg p-4 text-center">
+                <div class="text-xs text-gray-500 mb-1">TMB Status</div>
+                <div class="text-xl font-bold
+                    {% if biomarkers.tmb_classification == 'TMB-High' %}text-orange-700
+                    {% else %}text-gray-800{% endif %}">
+                    {{ biomarkers.tmb_classification }}
+                </div>
+                <div class="text-xs text-gray-400 mt-0.5">{{ "%.1f"|format(biomarkers.tmb_mut_per_mb) }} mut/Mb</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Reportable SNVs -->
+    {% if snvs %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Sequence Variants</h2>
+        <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Gene</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Protein Change</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Coding Change</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">VAF</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tier</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Interpretation</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+            {% for v in snvs %}
+            {% set rc = v.review_current or {} %}
+            <tr>
+                <td class="px-4 py-3 font-semibold text-gray-900">{{ v.gene }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ v.hgvsp }}</td>
+                <td class="px-4 py-3 font-mono text-xs text-gray-600">{{ v.hgvsc }}</td>
+                <td class="px-4 py-3">{{ "%.1f"|format(v.vaf * 100) }}%</td>
+                <td class="px-4 py-3">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+                        {% if rc.get('tier') == 'tier_1' %}bg-red-100 text-red-800
+                        {% elif rc.get('tier') == 'tier_2' %}bg-orange-100 text-orange-800
+                        {% elif rc.get('tier') == 'tier_3' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ rc.get('tier', '—') | replace('_', ' ') | upper }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-600 max-w-xs">
+                    {{ rc.get('interpretation', '—')[:200] }}{% if (rc.get('interpretation') or '')|length > 200 %}…{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Reportable CNVs -->
+    {% if cnvs %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Copy Number Variants</h2>
+        <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Gene</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Event</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Copy Number</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tier</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Interpretation</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+            {% for v in cnvs %}
+            {% set rc = v.review_current or {} %}
+            <tr>
+                <td class="px-4 py-3 font-semibold text-gray-900">{{ v.gene }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ v.event_type | replace('_', ' ') | title }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ v.copy_number }}</td>
+                <td class="px-4 py-3">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+                        {% if rc.get('tier') == 'tier_1' %}bg-red-100 text-red-800
+                        {% elif rc.get('tier') == 'tier_2' %}bg-orange-100 text-orange-800
+                        {% elif rc.get('tier') == 'tier_3' %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-green-100 text-green-800{% endif %}">
+                        {{ rc.get('tier', '—') | replace('_', ' ') | upper }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-600 max-w-xs">{{ rc.get('interpretation', '—') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Reportable SVs -->
+    {% if svs %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Structural Variants / Fusions</h2>
+        <table class="min-w-full text-sm divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fusion / SV</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tier</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Interpretation</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+            {% for v in svs %}
+            {% set rc = v.review_current or {} %}
+            <tr>
+                <td class="px-4 py-3 font-semibold text-gray-900">{{ v.gene_5prime }}-{{ v.gene_3prime }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ v.sv_type | replace('_', ' ') | title }}</td>
+                <td class="px-4 py-3">
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full
+                        {% if rc.get('tier') == 'tier_1' %}bg-red-100 text-red-800
+                        {% elif rc.get('tier') == 'tier_2' %}bg-orange-100 text-orange-800
+                        {% else %}bg-gray-100 text-gray-700{% endif %}">
+                        {{ rc.get('tier', '—') | replace('_', ' ') | upper }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-xs text-gray-600 max-w-xs">{{ rc.get('interpretation', '—') }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- Sign-offs -->
+    {% if sign_offs %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-3">Report Sign-offs</h2>
+        <div class="space-y-2">
+            {% for s in sign_offs %}
+            <div class="flex items-center text-sm text-gray-700 gap-3">
+                <svg class="w-4 h-4 text-green-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
+                </svg>
+                <span>{{ s.username }} ({{ s.role | replace('_', ' ') | title }}) — {{ s.signed_at[:10] }}</span>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <p class="text-xs text-gray-400 text-center pb-6">
+        This report is confidential and intended solely for the named recipient.
+        For clinical interpretation, consult with the issuing laboratory.
+    </p>
+
+</main>
+</body>
+</html>

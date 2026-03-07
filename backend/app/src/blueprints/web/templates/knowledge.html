@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <h2 class="text-3xl font-semibold">Variant Knowledge Database</h2>
+    {% set user = session.get('user') or {} %}
+    {% if user.get('role') in ('senior_reviewer', 'lab_director') %}
+    <button hx-get="/partials/knowledge/create"
+            hx-target="#entry-detail"
+            hx-swap="innerHTML"
+            class="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700">
+        + New Entry
+    </button>
+    {% endif %}
+</div>
+
+<div class="grid grid-cols-3 gap-6">
+
+    <!-- Left: search + list -->
+    <div class="col-span-1">
+        <!-- Search / filter form -->
+        <form hx-get="/partials/knowledge"
+              hx-target="#knowledge-list"
+              hx-swap="innerHTML"
+              hx-trigger="submit, change from:select"
+              class="bg-white rounded-lg shadow p-4 space-y-3 mb-4">
+
+            <input type="text" name="q" placeholder="Full-text search (min 3 words)…"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+            <input type="text" name="gene" placeholder="Gene (e.g. BRAF, KRAS)"
+                   class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+
+            <select name="variant_type"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All types</option>
+                <option value="snv">SNV</option>
+                <option value="cnv">CNV</option>
+                <option value="sv">SV</option>
+                <option value="fusion">Fusion</option>
+            </select>
+
+            <select name="tier"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All tiers</option>
+                <option value="tier_1">Tier 1</option>
+                <option value="tier_2">Tier 2</option>
+                <option value="tier_3">Tier 3</option>
+                <option value="tier_4">Tier 4</option>
+            </select>
+
+            <select name="disease_group"
+                    class="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All disease groups</option>
+                <option value="solid">Solid</option>
+                <option value="haematological">Haematological</option>
+                <option value="pan_cancer">Pan-cancer</option>
+            </select>
+
+            <button type="submit"
+                    class="w-full bg-gray-800 text-white px-3 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
+                Search
+            </button>
+        </form>
+
+        <!-- Results list -->
+        <div id="knowledge-list"
+             hx-get="/partials/knowledge"
+             hx-trigger="load"
+             hx-target="#knowledge-list"
+             hx-swap="innerHTML">
+            Loading…
+        </div>
+    </div>
+
+    <!-- Right: entry detail / form -->
+    <div class="col-span-2">
+        <div id="entry-detail"
+             class="bg-white rounded-lg shadow p-6 text-gray-400 text-sm">
+            Select an entry from the list to view details.
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}
