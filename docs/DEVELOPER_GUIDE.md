@@ -1,7 +1,7 @@
 # Omixia — Developer Guide
 
-**Version:** 1.0
-**Last Updated:** 2026-03-07
+**Version:** 1.1
+**Last Updated:** 2026-03-08
 **Branch:** dev
 
 ---
@@ -12,8 +12,9 @@
 2. [Project Structure](#project-structure)
 3. [Getting Started](#getting-started)
 4. [Authentication & Roles](#authentication--roles)
-5. [Data Models](#data-models)
-6. [Feature Reference](#feature-reference)
+5. [React Frontend](#react-frontend)
+6. [Data Models](#data-models)
+7. [Feature Reference](#feature-reference)
    - [Phase 1 — Foundation](#phase-1--foundation)
    - [Phase 2 — Core Review Workflow](#phase-2--core-review-workflow)
    - [Phase 3 — Variant Types](#phase-3--variant-types)
@@ -21,10 +22,10 @@
    - [Phase 5 — Knowledge Database](#phase-5--knowledge-database)
    - [Phase 6 — Report Generation](#phase-6--report-generation)
    - [Phase 7 — Advanced Features](#phase-7--advanced-features)
-7. [API Reference](#api-reference)
-8. [CLI Commands](#cli-commands)
-9. [Database Indexes](#database-indexes)
-10. [Configuration](#configuration)
+8. [API Reference](#api-reference)
+9. [CLI Commands](#cli-commands)
+10. [Database Indexes](#database-indexes)
+11. [Configuration](#configuration)
 
 ---
 
@@ -37,13 +38,14 @@ Omixia is a clinical-grade somatic variant interpretation and reporting platform
 | Backend | Flask 3.x, Python 3.12 |
 | Database | MongoDB 7 (document store) |
 | Cache / Sessions | Redis 7 |
-| Frontend | Jinja2 + Tailwind CSS + HTMX |
+| Server-rendered UI | Jinja2 + Tailwind CSS + HTMX |
+| React SPA | React 18, TypeScript, Vite, TailwindCSS, TanStack Query, Axios |
 | Server | Gunicorn + Nginx |
 | VCF normalisation | bcftools norm (subprocess) |
 | Variant annotation | Ensembl VEP (subprocess) |
 
 **Design principles:**
-- Server-rendered HTML with HTMX partial swaps — no frontend SPA framework
+- Two frontend options share the same REST API: (1) Jinja2 + HTMX server-rendered UI, (2) standalone React SPA
 - Services layer encapsulates all business logic; blueprints are thin routing only
 - Append-only audit log — no updates or deletes on `audit_log`
 - Optimistic locking on variant reviews using MongoDB `$expr` array length checks
@@ -54,6 +56,13 @@ Omixia is a clinical-grade somatic variant interpretation and reporting platform
 ## Project Structure
 
 ```
+frontend/                      # React SPA (see React Frontend section)
+  src/
+    api/                       # Axios API modules per domain
+    components/                # Shared UI components
+    contexts/                  # React contexts (auth)
+    pages/                     # One file per route/page
+
 backend/
   app/
     src/
@@ -198,6 +207,18 @@ POST /logout  → clears session
 @require_role("lab_director", "senior_reviewer")   # role whitelist
 ```
 
+### React SPA Auth
+
+The React frontend uses three dedicated JSON endpoints on the API blueprint:
+
+```
+POST /api/auth/login   { username, password }  → sets session cookie, returns user object
+POST /api/auth/logout                           → clears session
+GET  /api/auth/me                              → returns current user or 401
+```
+
+`AuthContext` calls `GET /api/auth/me` on mount to rehydrate the session. All subsequent API calls include `withCredentials: true` so the browser forwards the session cookie. The Vite dev server proxies `/api` to `http://localhost:5000` to avoid CORS.
+
 ### Physician Portal Auth
 
 Completely separate from the internal session. Tokens stored in `report_access_tokens` collection.
@@ -207,6 +228,137 @@ GET /portal/access/<token>    → validates token, sets session["portal_token"],
 GET /portal/report            → read-only report view (finalised only)
 POST /portal/logout
 ```
+
+---
+
+## React Frontend
+
+A standalone React 18 + TypeScript SPA lives in `frontend/`. It consumes the same `/api` REST endpoints as any external client and shares the Flask session-cookie auth mechanism.
+
+### Tech Stack
+
+| Concern | Library |
+|---|---|
+| Bundler | Vite 5 |
+| UI framework | React 18 + TypeScript |
+| Styling | Tailwind CSS 3 |
+| Routing | React Router v6 |
+| Data fetching / caching | TanStack Query v5 |
+| HTTP | Axios (with `withCredentials: true`) |
+
+### Directory Layout
+
+```
+frontend/
+├── index.html
+├── package.json
+├── vite.config.ts           # dev server on :3000, /api proxied to :5000
+├── tsconfig.json
+├── tailwind.config.js
+├── postcss.config.js
+└── src/
+    ├── main.tsx             # ReactDOM root, QueryClientProvider
+    ├── index.css            # Tailwind directives
+    ├── App.tsx              # BrowserRouter, route tree, AuthProvider wrapper
+    ├── api/
+    │   ├── client.ts        # Axios instance — baseURL /api, withCredentials, 401 redirect
+    │   ├── auth.ts          # login(), logout(), me()
+    │   ├── samples.ts       # list(), get(), getAssays(), getSummary(), assign()
+    │   ├── variants.ts      # SNV / CNV / SV list + review + preflight + biomarkers + callsets
+    │   ├── reports.ts       # list(), create(), signOff(), finalise(), export()
+    │   ├── knowledge.ts     # list(), search(), get(), create(), update()
+    │   └── lab.ts           # dashboard(), gapAnalysis(), cohort()
+    ├── contexts/
+    │   └── AuthContext.tsx  # user state, login/logout actions, loading flag
+    ├── components/
+    │   ├── Layout.tsx        # Top navbar + <Outlet /> shell
+    │   ├── ProtectedRoute.tsx # Redirects to /login when unauthenticated
+    │   ├── Badge.tsx         # Tier (tier_1…4) and status colour badges
+    │   └── LoadingSpinner.tsx
+    └── pages/
+        ├── LoginPage.tsx
+        ├── DashboardPage.tsx
+        ├── SamplesPage.tsx
+        ├── SampleDetailPage.tsx
+        ├── KnowledgePage.tsx
+        ├── LabDashboardPage.tsx
+        ├── GapAnalysisPage.tsx
+        └── CohortPage.tsx
+```
+
+### Pages & Features
+
+| Route | Page | Description |
+|---|---|---|
+| `/login` | `LoginPage` | Username/password form, POSTs to `/api/auth/login` |
+| `/dashboard` | `DashboardPage` | Welcome banner, stat cards, recent samples table |
+| `/samples` | `SamplesPage` | Searchable sample list; click to expand assays inline |
+| `/samples/:sampleId/assays/:assayId` | `SampleDetailPage` | 7-tab workspace (see below) |
+| `/knowledge` | `KnowledgePage` | Filterable knowledge list + side-panel detail + create/edit modal |
+| `/lab-dashboard` | `LabDashboardPage` | TAT/SLA stats grid (senior_reviewer / lab_director only) |
+| `/gap-analysis` | `GapAnalysisPage` | Gene + optional assay ID query → gap table (lab_director only) |
+| `/cohort` | `CohortPage` | Gene / tier / type / assay filter → cohort query results |
+
+### SampleDetailPage Tabs
+
+| Tab | API calls | Key interactions |
+|---|---|---|
+| **SNVs** | `GET /sample-assays/<id>/snvs` | Click row → side panel with tier selector, interpretation, note fields; POST review |
+| **CNVs** | `GET /sample-assays/<id>/cnvs` | Same review pattern, keyed by gene |
+| **SVs** | `GET /sample-assays/<id>/svs` | Same review pattern, keyed by sv_id |
+| **Biomarkers** | `GET /sample-assays/<id>/biomarkers` | Displays MSI/TMB classification; confirm form with discordance acknowledge |
+| **Preflight** | `GET /sample-assays/<id>/preflight` | Pass/fail checklist; Re-run button |
+| **Reports** | `GET /sample-assays/<id>/reports` | Create draft, sign off, finalise, export JSON link |
+| **Callsets** | `GET /sample-assays/<id>/callsets` | Read-only table of imported callsets |
+
+### Data Fetching Pattern
+
+All server state is managed with TanStack Query. Each API module returns typed promises; query keys follow `[resource, id]` conventions so targeted invalidations work correctly:
+
+```typescript
+// After a review is submitted, invalidate the variant list and summary
+qc.invalidateQueries({ queryKey: ['snvs', assayId] })
+qc.invalidateQueries({ queryKey: ['summary', assayId] })
+```
+
+### Auth Flow
+
+```
+App mounts
+  → AuthContext calls GET /api/auth/me
+      ├─ 200: setUser(data) → renders protected routes
+      └─ 401: setUser(null) → ProtectedRoute redirects to /login
+
+User submits login form
+  → POST /api/auth/login { username, password }
+      ├─ 200: setUser(data), navigate('/dashboard')
+      └─ 401: show error message
+
+Axios interceptor: any 401 from other endpoints → window.location.href = '/login'
+```
+
+### Role-Based UI
+
+Pages that require elevated roles check `user.role` from `AuthContext` and render an access-denied message rather than calling the API:
+
+```typescript
+const allowed = user?.role === 'lab_director' || user?.role === 'senior_reviewer'
+if (!allowed) return <div>Access restricted…</div>
+```
+
+Editable actions in `KnowledgePage` (create / edit buttons) are also hidden for `reviewer` and `bioinformatician` roles.
+
+### Running the Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:3000
+npm run build        # production build → dist/
+npm run preview      # preview the production build locally
+```
+
+The Flask backend must be running at `http://localhost:5000` for the Vite proxy to forward API calls correctly.
 
 ---
 
@@ -699,7 +851,15 @@ Export schema version is `1.0`. Accessible at `/federation` (lab_director only).
 
 ## API Reference
 
-All API routes are prefixed with `/api`. Authentication uses the internal session cookie.
+All API routes are prefixed with `/api`. Authentication uses the internal session cookie (`withCredentials: true` from the React frontend, or a browser session from the Jinja2 UI).
+
+### Auth
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/api/auth/login` | None | JSON login `{username, password}` → sets session, returns user object |
+| POST | `/api/auth/logout` | None | Clears session |
+| GET | `/api/auth/me` | None | Returns current session user or 401 |
 
 ### Health
 

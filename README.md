@@ -16,9 +16,12 @@ Omixia supports SNV, CNV, SV, MSI, and TMB analysis with a multi-reviewer consen
 | Backend | Flask 3.x, Python 3.12 |
 | Database | MongoDB 7 |
 | Cache / Sessions | Redis 7 |
-| Frontend | Jinja2 + Tailwind CSS + HTMX |
+| Server-rendered UI | Jinja2 + Tailwind CSS + HTMX |
+| React SPA | React 18, TypeScript, Vite, TailwindCSS, TanStack Query |
 
 ## Quick Start
+
+### Backend
 
 ```bash
 cd backend
@@ -29,9 +32,23 @@ pip install -r app/requirements.txt
 # Load demo data
 flask load-demo
 
-# Run the dev server
+# Run the dev server (default: http://localhost:5000)
 flask run
 ```
+
+### React Frontend
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Start the dev server (default: http://localhost:3000)
+npm run dev
+```
+
+The Vite dev server proxies all `/api` requests to `http://localhost:5000`, so the Flask backend must be running first.
 
 Demo credentials (password: `omixia_demo_1`):
 

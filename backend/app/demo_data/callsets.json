@@ -3,10 +3,11 @@
       "callset_id": "CS_LUNG_001",
       "sample_assay_id": "SA_LUNG_001",
       "is_active": true,
+      "qc_status": "passed",
       "raw_counts": {
-        "snv": 3,
-        "cnv": 0,
-        "sv": 0
+        "snv": 2,
+        "cnv": 3,
+        "sv": 2
       }
     }
   ]

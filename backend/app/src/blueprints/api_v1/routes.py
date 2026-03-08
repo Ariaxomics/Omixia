@@ -27,6 +27,45 @@ def health():
 
 
 # ----------------------------
+# Auth
+# ----------------------------
+
+@api_bp.route("/auth/login", methods=["POST"])
+def api_login():
+    from src.services.users import UserService
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    password = data.get("password", "")
+    if not username or not password:
+        return jsonify({"error": "username and password required"}), 400
+    user = UserService.authenticate(username, password)
+    if not user:
+        return jsonify({"error": "Invalid credentials"}), 401
+    session["user"] = {
+        "user_id": user["user_id"],
+        "username": user["username"],
+        "role": user["role"],
+        "full_name": user.get("full_name", ""),
+        "email": user.get("email", ""),
+    }
+    return jsonify({"data": session["user"]})
+
+
+@api_bp.route("/auth/logout", methods=["POST"])
+def api_logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+@api_bp.route("/auth/me", methods=["GET"])
+def api_me():
+    user = session.get("user")
+    if not user:
+        return jsonify({"error": "Not authenticated"}), 401
+    return jsonify({"data": user})
+
+
+# ----------------------------
 # Samples
 # ----------------------------
 
