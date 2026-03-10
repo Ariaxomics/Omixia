@@ -6,6 +6,7 @@ import bcrypt
 from src.extensions import mongo_client
 
 VALID_ROLES = (
+    "admin",
     "bioinformatician",
     "reviewer",
     "senior_reviewer",

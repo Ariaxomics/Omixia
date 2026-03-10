@@ -66,6 +66,45 @@ def api_me():
 
 
 # ----------------------------
+# Users
+# ----------------------------
+
+@api_bp.route("/users", methods=["GET"])
+@require_role("admin", "lab_director", "senior_reviewer")
+def list_users():
+    from src.extensions import mongo_client
+    db = mongo_client.db
+    users = list(db.users.find({}, {"_id": 0, "password_hash": 0}))
+    return jsonify({"data": users})
+
+
+@api_bp.route("/users", methods=["POST"])
+@require_role("admin", "lab_director")
+def register_user():
+    from src.services.users import UserService
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    role = data.get("role", "").strip()
+    full_name = data.get("full_name", "").strip()
+    password = data.get("password", "")
+
+    missing = [f for f, v in [("username", username), ("email", email), ("role", role), ("full_name", full_name), ("password", password)] if not v]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    if len(password) < 12:
+        return jsonify({"error": "Password must be at least 12 characters"}), 400
+
+    try:
+        user = UserService.create_user(username, email, role, full_name, password)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+
+    return jsonify({"data": user}), 201
+
+
+# ----------------------------
 # Samples
 # ----------------------------
 
@@ -181,7 +220,7 @@ def get_assay_config(assay_id):
 
 
 @api_bp.route("/assay-configs", methods=["POST"])
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def create_assay_config():
     data = request.get_json()
     if not data:
@@ -281,7 +320,7 @@ def submit_sv_review(sample_assay_id, sv_id):
 # ----------------------------
 
 @api_bp.route("/sample-assays/<sample_assay_id>/assign", methods=["POST"])
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def assign_case(sample_assay_id):
     data = request.get_json() or {}
     reviewers = data.get("reviewers", [])
@@ -320,7 +359,7 @@ def get_biomarkers(sample_assay_id):
 
 
 @api_bp.route("/sample-assays/<sample_assay_id>/biomarkers/classify", methods=["POST"])
-@require_role("lab_director", "senior_reviewer", "bioinformatician")
+@require_role("admin", "lab_director", "senior_reviewer", "bioinformatician")
 def classify_biomarkers(sample_assay_id):
     try:
         doc = BiomarkerService.classify_from_callset(sample_assay_id)
@@ -405,7 +444,7 @@ def sign_off_report(report_id):
 
 
 @api_bp.route("/reports/<report_id>/finalise", methods=["POST"])
-@require_role("senior_reviewer", "lab_director")
+@require_role("admin", "senior_reviewer", "lab_director")
 def finalise_report(report_id):
     user = current_user()
     try:
@@ -431,7 +470,7 @@ def export_report_json(report_id):
 
 
 @api_bp.route("/reports/<report_id>/addendum", methods=["POST"])
-@require_role("senior_reviewer", "lab_director")
+@require_role("admin", "senior_reviewer", "lab_director")
 def create_addendum(report_id):
     user = current_user()
     try:
@@ -483,7 +522,7 @@ def search_knowledge():
 
 
 @api_bp.route("/knowledge", methods=["POST"])
-@require_role("senior_reviewer", "lab_director")
+@require_role("admin", "senior_reviewer", "lab_director")
 def create_knowledge():
     data = request.get_json() or {}
     user = current_user()
@@ -504,7 +543,7 @@ def get_knowledge(knowledge_id):
 
 
 @api_bp.route("/knowledge/<knowledge_id>", methods=["PUT"])
-@require_role("senior_reviewer", "lab_director")
+@require_role("admin", "senior_reviewer", "lab_director")
 def update_knowledge(knowledge_id):
     data = request.get_json() or {}
     user = current_user()
@@ -547,7 +586,7 @@ def get_summary(sample_assay_id):
 # ----------------------------
 
 @api_bp.route("/lab/dashboard", methods=["GET"])
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def lab_dashboard_api():
     return jsonify({"data": TATService.dashboard_stats()})
 
@@ -557,7 +596,7 @@ def lab_dashboard_api():
 # ----------------------------
 
 @api_bp.route("/gap-analysis", methods=["GET"])
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def gap_analysis_api():
     gene = request.args.get("gene", "").strip()
     assay_id = request.args.get("assay_id", "").strip() or None
@@ -588,7 +627,7 @@ def cohort_query_api():
 # ----------------------------
 
 @api_bp.route("/reports/<report_id>/portal-token", methods=["POST"])
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def issue_portal_token(report_id):
     user = current_user()
     try:
@@ -604,7 +643,7 @@ def issue_portal_token(report_id):
 # ----------------------------
 
 @api_bp.route("/federation/export", methods=["POST"])
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def federation_export_api():
     user = current_user()
     data = request.get_json() or {}
@@ -619,7 +658,7 @@ def federation_export_api():
 
 
 @api_bp.route("/federation/import", methods=["POST"])
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def federation_import_api():
     user = current_user()
     payload = request.get_json() or {}
@@ -631,7 +670,7 @@ def federation_import_api():
 
 
 @api_bp.route("/federation/exports", methods=["GET"])
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def list_federation_exports():
     return jsonify({"data": FederationService.list_exports()})
 
@@ -656,7 +695,7 @@ def get_callset(callset_id):
 
 
 @api_bp.route("/sample-assays/<sample_assay_id>/callsets/import", methods=["POST"])
-@require_role("bioinformatician", "lab_director")
+@require_role("admin", "bioinformatician", "lab_director")
 def import_callset(sample_assay_id):
     """
     Trigger a VCF import via API (dev / testing only — skips normalisation and annotation).

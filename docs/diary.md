@@ -219,6 +219,74 @@ db.callsets.updateOne({ callset_id: "CS_LUNG_001" }, { $set: { qc_status: "passe
 
 ---
 
+---
+
+## 14. User Registration API Route Added
+
+**Date:** 2026-03-10
+
+**Change:** Added `POST /api/users` and `GET /api/users` endpoints to the `api_v1` blueprint.
+
+Previously, users could only be created via the `flask create-user` CLI command. These new routes expose user management over HTTP.
+
+**`POST /api/users`** — Register a new user. Restricted to `admin` and `lab_director` roles.
+
+Request body:
+```json
+{
+  "username": "jsmith",
+  "email": "j.smith@lab.org",
+  "full_name": "Jane Smith",
+  "role": "reviewer",
+  "password": "secure_password_123"
+}
+```
+
+Validation:
+- All fields are required → `400`
+- Password must be ≥ 12 characters → `400`
+- Duplicate username or email → `409`
+- Invalid role → `409`
+
+Returns the created user (without `password_hash`) with status `201`.
+
+**`GET /api/users`** — List all users (no password hashes). Restricted to `admin`, `lab_director`, and `senior_reviewer`.
+
+**File:** `backend/app/src/blueprints/api_v1/routes.py`
+
+---
+
+## 15. `admin` Role Added
+
+**Date:** 2026-03-10
+
+**Change:** A new `admin` role was introduced that sits above `lab_director` and has access to every role-protected endpoint in the system.
+
+`"admin"` was added to `VALID_ROLES` in `UserService` and prepended to every `@require_role(...)` decorator that previously included `lab_director`, covering:
+
+| Endpoint | Decorator |
+|---|---|
+| `GET /api/users` | `admin`, `lab_director`, `senior_reviewer` |
+| `POST /api/users` | `admin`, `lab_director` |
+| `POST /api/assay-configs` | `admin`, `lab_director`, `senior_reviewer` |
+| `POST /api/sample-assays/<id>/assign` | `admin`, `lab_director`, `senior_reviewer` |
+| `POST /api/sample-assays/<id>/biomarkers/classify` | `admin`, `lab_director`, `senior_reviewer`, `bioinformatician` |
+| `POST /api/reports/<id>/finalise` | `admin`, `senior_reviewer`, `lab_director` |
+| `POST /api/reports/<id>/addendum` | `admin`, `senior_reviewer`, `lab_director` |
+| `POST /api/knowledge` | `admin`, `senior_reviewer`, `lab_director` |
+| `PUT /api/knowledge/<id>` | `admin`, `senior_reviewer`, `lab_director` |
+| `GET /api/lab/dashboard` | `admin`, `lab_director`, `senior_reviewer` |
+| `GET /api/gap-analysis` | `admin`, `lab_director` |
+| `POST /api/reports/<id>/portal-token` | `admin`, `lab_director`, `senior_reviewer` |
+| `POST /api/federation/export` | `admin`, `lab_director` |
+| `POST /api/federation/import` | `admin`, `lab_director` |
+| `GET /api/federation/exports` | `admin`, `lab_director` |
+| `POST /api/sample-assays/<id>/callsets/import` | `admin`, `bioinformatician`, `lab_director` |
+
+**Files:** `backend/app/src/services/users.py`, `backend/app/src/blueprints/api_v1/routes.py`
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |
