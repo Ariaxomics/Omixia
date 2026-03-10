@@ -7,6 +7,13 @@
     "password": "omixia_demo_1"
   },
   {
+    "username": "admin",
+    "email": "admin@demo.omixia",
+    "role": "admin",
+    "full_name": "Demo admin",
+    "password": "omixia_demo_1"
+  },
+  {
     "username": "senior",
     "email": "senior@demo.omixia",
     "role": "senior_reviewer",

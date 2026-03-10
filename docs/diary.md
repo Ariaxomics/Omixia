@@ -287,6 +287,26 @@ Returns the created user (without `password_hash`) with status `201`.
 
 ---
 
+## 16. `admin` Demo User Missing from Database
+
+**Date:** 2026-03-10
+
+**Problem:** The `admin` user defined in `backend/app/demo_data/users.json` was not present in the database. Only 4 users existed (geneticist, senior, director, bioinf).
+
+**Root cause:** The `admin` entry was added to `users.json` after `flask load-demo` was last run. The original file (committed in `04c274d`) contained only 4 users. The `admin` entry was added locally but `load-demo` was never re-executed, so the database was never updated.
+
+**Fix:** Re-run the demo loader inside the running container:
+```bash
+docker exec app_omixia flask load-demo
+```
+This wipes and re-imports all users from the current `users.json`, including `admin`.
+
+**Note:** `load_demo.py` also omitted `admin` from its credentials print-out (lines 57–61), which should be updated to include the admin user for completeness.
+
+**File:** `backend/app/demo_data/users.json`, `backend/app/src/cli/load_demo.py`
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |
