@@ -559,13 +559,13 @@ def knowledge_edit_submit(knowledge_id):
 # ----------------------------
 
 @web_bp.route("/lab-dashboard")
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def lab_dashboard():
     return render_template("lab_dashboard.html")
 
 
 @web_bp.route("/partials/lab-dashboard/stats")
-@require_role("lab_director", "senior_reviewer")
+@require_role("admin", "lab_director", "senior_reviewer")
 def lab_dashboard_stats():
     stats = TATService.dashboard_stats()
     return render_template("partials/lab_stats.html", stats=stats)
@@ -576,14 +576,14 @@ def lab_dashboard_stats():
 # ----------------------------
 
 @web_bp.route("/gap-analysis")
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def gap_analysis_page():
     assay_versions = GapAnalysisService.list_assay_versions()
     return render_template("gap_analysis.html", assay_versions=assay_versions)
 
 
 @web_bp.route("/partials/gap-analysis")
-@require_role("lab_director")
+@require_role("admin", "lab_director")
 def gap_analysis_partial():
     gene = request.args.get("gene", "").strip()
     assay_id = request.args.get("assay_id", "").strip()

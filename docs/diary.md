@@ -307,6 +307,25 @@ This wipes and re-imports all users from the current `users.json`, including `ad
 
 ---
 
+## 17. `admin` Role Added to Lab Dashboard and Gap Analysis Web Routes
+
+**Date:** 2026-03-10
+
+**Problem:** The `admin` role had access to the API endpoints (`/api/lab/dashboard`, `/api/gap-analysis`) but was missing from the corresponding web routes, so an admin user would be redirected to the dashboard instead of seeing those pages.
+
+**Fix:** Added `"admin"` to four `@require_role` decorators in the web blueprint:
+
+| Route | Before | After |
+|---|---|---|
+| `GET /lab-dashboard` | `lab_director`, `senior_reviewer` | `admin`, `lab_director`, `senior_reviewer` |
+| `GET /partials/lab-dashboard/stats` | `lab_director`, `senior_reviewer` | `admin`, `lab_director`, `senior_reviewer` |
+| `GET /gap-analysis` | `lab_director` | `admin`, `lab_director` |
+| `GET /partials/gap-analysis` | `lab_director` | `admin`, `lab_director` |
+
+**File:** `backend/app/src/blueprints/web/routes.py`
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |
