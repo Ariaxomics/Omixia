@@ -1,7 +1,11 @@
 import axios from 'axios'
 
+// In local dev, VITE_API_BASE_URL is unset → falls back to nginx proxy at /api
+// In production (Cloudflare Pages), set VITE_API_BASE_URL=https://api.yourdomain.com/api
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+
 const client = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_URL,
   withCredentials: true,
   headers: { 'Content-Type': 'application/json' },
 })

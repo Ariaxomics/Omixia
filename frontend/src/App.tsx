@@ -10,6 +10,7 @@ import KnowledgePage from './pages/KnowledgePage'
 import LabDashboardPage from './pages/LabDashboardPage'
 import GapAnalysisPage from './pages/GapAnalysisPage'
 import CohortPage from './pages/CohortPage'
+import UsersPage from './pages/UsersPage'
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
               <Route path="/lab-dashboard" element={<LabDashboardPage />} />
               <Route path="/gap-analysis" element={<GapAnalysisPage />} />
               <Route path="/cohort" element={<CohortPage />} />
+              <Route path="/users" element={<UsersPage />} />
             </Route>
           </Route>
         </Routes>

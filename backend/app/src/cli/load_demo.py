@@ -55,6 +55,7 @@ def load_demo_data(app):
         print("Demo data loaded successfully.")
         print("")
         print("Demo credentials (password: omixia_demo_1):")
+        print("  admin       — admin")
         print("  geneticist  — reviewer")
         print("  senior      — senior_reviewer")
         print("  director    — lab_director")

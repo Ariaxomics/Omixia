@@ -2,12 +2,13 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/samples', label: 'Samples' },
-  { to: '/knowledge', label: 'Knowledge DB' },
-  { to: '/cohort', label: 'Cohort' },
-  { to: '/lab-dashboard', label: 'Lab Dashboard' },
-  { to: '/gap-analysis', label: 'Gap Analysis' },
+  { to: '/dashboard', label: 'Dashboard', roles: null },
+  { to: '/samples', label: 'Samples', roles: null },
+  { to: '/knowledge', label: 'Knowledge DB', roles: null },
+  { to: '/cohort', label: 'Cohort', roles: null },
+  { to: '/lab-dashboard', label: 'Lab Dashboard', roles: ['admin', 'lab_director', 'senior_reviewer'] },
+  { to: '/gap-analysis', label: 'Gap Analysis', roles: ['admin', 'lab_director'] },
+  { to: '/users', label: 'Users', roles: ['admin', 'lab_director', 'senior_reviewer'] },
 ]
 
 export default function Layout() {
@@ -24,19 +25,21 @@ export default function Layout() {
       <nav className="bg-blue-700 text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 flex items-center h-14 gap-6">
           <span className="font-bold text-lg tracking-tight mr-2">Omixia</span>
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `text-sm font-medium px-2 py-1 rounded transition-colors ${
-                  isActive ? 'bg-blue-900' : 'hover:bg-blue-600'
-                }`
-              }
-            >
-              {item.label}
-            </NavLink>
-          ))}
+          {navItems
+            .filter((item) => !item.roles || item.roles.includes(user?.role ?? ''))
+            .map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                className={({ isActive }) =>
+                  `text-sm font-medium px-2 py-1 rounded transition-colors ${
+                    isActive ? 'bg-blue-900' : 'hover:bg-blue-600'
+                  }`
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
           <div className="ml-auto flex items-center gap-3 text-sm">
             <span className="opacity-80">{user?.full_name || user?.username}</span>
             <span className="px-2 py-0.5 rounded bg-blue-500 text-xs font-medium capitalize">

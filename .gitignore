@@ -206,3 +206,6 @@ __marimo__/
 CLAUDE_API_KEY
 CLAUDE.md
 SPEC.md
+.env*
+
+frontend/node_modules/*

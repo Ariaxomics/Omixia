@@ -13,6 +13,62 @@
     "diagnosis_id": "Breast_Adenocarcinoma",
     "disease_group": "solid",
     "disease_subtype": "Breast_Adenocarcinoma",
-    "created_at": "2026-02-26T11:00:00Z"
+    "created_at": "2026-02-28T09:00:00Z"
+  },
+  {
+    "sample_id": "BRAIN-001",
+    "patient_pseudonym_id": "c5f3d4e6f7a8b9012cde345fg678901bcdef3456789012cdef3456789013",
+    "diagnosis_id": "Glioblastoma",
+    "disease_group": "solid",
+    "disease_subtype": "Glioblastoma",
+    "created_at": "2026-03-01T08:00:00Z"
+  },
+  {
+    "sample_id": "COLON-001",
+    "patient_pseudonym_id": "d6a4e5f7a8b9c0123def456gh789012cdef4567890123def4567890124",
+    "diagnosis_id": "Colorectal_Carcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Colorectal_Carcinoma",
+    "created_at": "2026-02-20T14:00:00Z"
+  },
+  {
+    "sample_id": "SKIN-001",
+    "patient_pseudonym_id": "e7b5f6a8b9c0d1234efg567hi890123def5678901234ef5678901235",
+    "diagnosis_id": "Melanoma",
+    "disease_group": "solid",
+    "disease_subtype": "Melanoma",
+    "created_at": "2026-03-03T11:00:00Z"
+  },
+  {
+    "sample_id": "KIDNEY-001",
+    "patient_pseudonym_id": "f8c6a7b9c0d1e2345fgh678ij901234def6789012345fg6789012346",
+    "diagnosis_id": "Renal_Cell_Carcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Renal_Cell_Carcinoma",
+    "created_at": "2026-02-18T09:30:00Z"
+  },
+  {
+    "sample_id": "LIVER-001",
+    "patient_pseudonym_id": "g9d7b8c0d1e2f3456ghi789jk012345def7890123456gh7890123457",
+    "diagnosis_id": "Hepatocellular_Carcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Hepatocellular_Carcinoma",
+    "created_at": "2026-02-10T10:00:00Z"
+  },
+  {
+    "sample_id": "OVARY-001",
+    "patient_pseudonym_id": "h0e8c9d1e2f3a4567hij890kl123456def8901234567hi8901234568",
+    "diagnosis_id": "Ovarian_Carcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Ovarian_Carcinoma",
+    "created_at": "2026-02-05T08:00:00Z"
+  },
+  {
+    "sample_id": "PROSTATE-001",
+    "patient_pseudonym_id": "i1f9d0e2f3a4b5678ijk901lm234567def9012345678ij9012345679",
+    "diagnosis_id": "Prostate_Adenocarcinoma",
+    "disease_group": "solid",
+    "disease_subtype": "Prostate_Adenocarcinoma",
+    "created_at": "2026-02-12T13:00:00Z"
   }
 ]

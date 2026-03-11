@@ -326,6 +326,85 @@ This wipes and re-imports all users from the current `users.json`, including `ad
 
 ---
 
+---
+
+## 18. User Registration Frontend (UsersPage)
+
+**Date:** 2026-03-11
+
+**Change:** Added a `UsersPage` at `/users` visible to `admin`, `lab_director`, and `senior_reviewer`.
+
+**Features:**
+- Lists all registered users in a table (username, email, role badge, active status, created date)
+- Register form visible only to `admin` and `lab_director`
+- Role-based assignable roles: `admin` can assign any role; `lab_director` cannot assign `admin`
+- Client-side validation: all fields required, password ≥ 12 chars
+- Uses TanStack Query `useQuery` + `useMutation`; refetches list on successful registration
+
+**New files:**
+- `frontend/src/api/users.ts` — `usersApi.list()` and `usersApi.create()`
+- `frontend/src/pages/UsersPage.tsx`
+
+**Modified files:**
+- `frontend/src/App.tsx` — added `/users` route
+- `frontend/src/components/Layout.tsx` — added "Users" nav link with role filter
+
+---
+
+## 19. Lab Dashboard Demo Data and UI Overhaul
+
+**Date:** 2026-03-11
+
+**Problem:** The lab dashboard showed no data. `TATService.dashboard_stats()` returned empty/null aggregates because only one `sample_assay` existed (no terminal cases, no SLA variation). The frontend page also rendered nested objects as `[object Object]` using a raw `Object.entries()` dump.
+
+**Fix — Demo data expanded:**
+- `backend/app/demo_data/samples.json`: 2 → 9 samples (LUNG, BREAST, BRAIN, COLON, SKIN, KIDNEY, LIVER, OVARY, PROSTATE)
+- `backend/app/demo_data/sample_assays.json`: 1 → 9 assays covering all states and SLA outcomes:
+
+| Assay | State | SLA status |
+|---|---|---|
+| SA_LUNG_001 | `review_in_progress` | on_track (stalled) |
+| SA_BREAST_001 | `pending_qc` | on_track |
+| SA_BRAIN_001 | `review_in_progress` | amber (urgent) |
+| SA_COLON_001 | `analysis_ready` | breached |
+| SA_SKIN_001 | `review_complete` | amber |
+| SA_KIDNEY_001 | `preflight_failed` | breached |
+| SA_LIVER_001 | `report_delivered` | terminal (within SLA) |
+| SA_OVARY_001 | `report_delivered` | terminal (within SLA) |
+| SA_PROSTATE_001 | `finalised` | terminal |
+
+**Fix — Frontend rewritten:**
+- Typed TypeScript interfaces: `ActiveCase`, `AssayBreakdown`, `DashboardStats`
+- Summary stat cards: Active Cases, Finalised, SLA Breached (red), Due Within 48h (amber), Stalled Cases, Within SLA %, Median TAT
+- Active cases table with colour-coded SLA badges (breached=red, amber=yellow, on_track=green), priority badge, stalled badge, TAT hours
+- TAT by Assay breakdown table
+
+**File:** `frontend/src/pages/LabDashboardPage.tsx`
+
+---
+
+## 20. SPEC.md and CLAUDE.md Restructured for Phases 8 and 9
+
+**Date:** 2026-03-11
+
+**Change:** Both documentation files were overhauled to give clear, actionable task lists for the remaining work.
+
+**SPEC.md — Phase 16 section rewritten:**
+- Phases 1–7 converted to `- [x]` checkbox format with every completed item documented
+- Phase 8 (Architecture Harmonisation) broken into 5 tasks with atomic `- [ ]` sub-items and exact API endpoint references
+- Phase 9 (Production Deployment) broken into 10 tasks with exact shell commands, `config.yml` snippets, environment variable names, and a 10-item smoke-test checklist
+
+**CLAUDE.md — Expanded from 6 lines to full project guide:**
+- Project structure tree
+- Three-blueprint architecture explanation
+- Auth mechanism summary
+- Phase progress table
+- Phase 8 next-task ordered list
+- Phase 9 deployment quick reference
+- Key patterns (endpoint, API module, page, audit logging, demo data)
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |

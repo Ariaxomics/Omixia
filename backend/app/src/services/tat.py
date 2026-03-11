@@ -61,17 +61,17 @@ class TATService:
 
     @staticmethod
     def tat_hours(assay: dict) -> float | None:
-        """TAT in hours: created_at → report_delivered (or now if still active)."""
+        """TAT in hours: created_at → report_delivered or finalised (or now if still active)."""
         start = _parse_dt(assay.get("created_at"))
         if not start:
             return None
 
-        delivered_ts = next(
+        end_ts = next(
             (e.get("timestamp") for e in reversed(assay.get("state_history") or [])
-             if e.get("status") == "report_delivered"),
+             if e.get("status") in ("report_delivered", "finalised")),
             None,
         )
-        end = _parse_dt(delivered_ts) or datetime.utcnow()
+        end = _parse_dt(end_ts) or datetime.utcnow()
         return round((end - start).total_seconds() / 3600, 1)
 
     @staticmethod
@@ -99,13 +99,13 @@ class TATService:
             if tat is not None:
                 tat_list.append(tat)
             due = _parse_dt(a.get("sla_due_at"))
-            delivered_ts = next(
+            end_ts = next(
                 (e.get("timestamp") for e in reversed(a.get("state_history") or [])
-                 if e.get("status") == "report_delivered"),
+                 if e.get("status") in ("report_delivered", "finalised")),
                 None,
             )
-            delivered = _parse_dt(delivered_ts)
-            if due and delivered and delivered <= due:
+            end_dt = _parse_dt(end_ts)
+            if due and end_dt and end_dt <= due:
                 within_sla += 1
 
         pct_within_sla = round(within_sla / len(terminal) * 100, 1) if terminal else None
