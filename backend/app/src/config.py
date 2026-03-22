@@ -2,7 +2,7 @@ import os
 
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY")
+    SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
     SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME")
     DEBUG = bool(int(os.getenv("FLASK_DEBUG", "0")))
 

@@ -209,3 +209,4 @@ SPEC.md
 .env*
 
 frontend/node_modules/*
+backups/
