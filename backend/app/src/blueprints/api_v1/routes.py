@@ -675,6 +675,13 @@ def list_federation_exports():
     return jsonify({"data": FederationService.list_exports()})
 
 
+@api_bp.route("/federation/eligible", methods=["GET"])
+@require_role("admin", "lab_director")
+def federation_eligible():
+    entries = FederationService.eligible_entries()
+    return jsonify({"data": {"count": len(entries)}})
+
+
 # ----------------------------
 # Callsets / Ingestion (Phase 4)
 # ----------------------------

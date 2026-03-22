@@ -405,6 +405,95 @@ This wipes and re-imports all users from the current `users.json`, including `ad
 
 ---
 
+## 21. Phase 8 — Architecture Harmonisation Complete
+
+**Date:** 2026-03-11
+
+**Change:** Completed the full Phase 8 task list: React SPA is now the sole clinical interface, the web blueprint is slimmed to landing/about/login/logout only, and CORS + cross-origin session cookies are fully configured.
+
+### 8.1 — Feature parity (already done)
+
+All clinical tabs (Variants, CNV, SV, Biomarkers, Reports, Callsets, Preflight) were already present in `SampleDetailPage.tsx` from earlier sessions.
+
+### 8.2 — Physician portal token UI
+
+Added an "Issue physician link" button to the Reports tab, visible only to `lab_director`, `senior_reviewer`, and `admin` on finalised reports. Clicking it calls `POST /api/reports/<id>/portal-token` and displays the returned URL inline.
+
+Added `issuePortalToken()` to `frontend/src/api/reports.ts`.
+
+Fixed the Export JSON `<a href>` to use `client.defaults.baseURL` (reads `VITE_API_BASE_URL`) instead of the hardcoded `/api` prefix.
+
+**File:** `frontend/src/pages/SampleDetailPage.tsx`, `frontend/src/api/reports.ts`
+
+### 8.3 — Federation page
+
+Created `frontend/src/api/federation.ts` with `listExports`, `eligibleCount`, and `export` methods.
+
+Created `frontend/src/pages/FederationPage.tsx` — shows eligible entry count, export history table, and an export form with `lab_id` input. Restricted to `lab_director`.
+
+Added `GET /api/federation/eligible` endpoint to `api_v1` routes (was missing; only `eligible_entries()` existed in the service layer).
+
+Added `/federation` route to `App.tsx` and "Federation" nav link to `Layout.tsx`.
+
+**New files:** `frontend/src/api/federation.ts`, `frontend/src/pages/FederationPage.tsx`
+
+**Modified files:** `backend/app/src/blueprints/api_v1/routes.py`, `frontend/src/App.tsx`, `frontend/src/components/Layout.tsx`
+
+### 8.4 — Web blueprint slimmed
+
+`backend/app/src/blueprints/web/routes.py` rewritten to keep only 4 routes: `GET /` (landing), `GET /about`, `GET+POST /login`, `POST /logout`. All HTMX partials, dashboard, samples, knowledge, cohort, lab-dashboard, gap-analysis, federation, and callsets routes removed.
+
+Login success now redirects to `web.landing` (the React SPA link covers the actual post-login destination).
+
+All app-section Jinja2 templates and partials moved to `backend/app/src/blueprints/web/templates/archive/`.
+
+### 8.5 — CORS and cross-origin session cookies
+
+Added `Flask-Cors==4.0.1` to `requirements.txt` and rebuilt the Docker image.
+
+`__init__.py`: added CORS initialisation covering `r"/api/*"` with `supports_credentials=True`, using `ALLOWED_ORIGINS` list when set or falling back to `"*"` in development.
+
+`config.py`: added three new config values:
+- `SESSION_COOKIE_SAMESITE` (default `"Lax"`)
+- `SESSION_COOKIE_SECURE` (default `False`)
+- `ALLOWED_ORIGINS` (parsed from comma-separated env var)
+
+`nginx/default.conf`: added `proxy_hide_header Access-Control-Allow-Origin` to the `/api/` location block on port 80 to prevent Flask-CORS and nginx from adding duplicate CORS headers.
+
+Rebuilt Docker image to pick up the new dependency: `docker compose build app && docker compose up -d app`.
+
+**Modified files:** `backend/app/requirements.txt`, `backend/app/src/__init__.py`, `backend/app/src/config.py`, `backend/nginx/default.conf`, `frontend/tsconfig.json` (added `"types": ["vite/client"]` to fix pre-existing `import.meta.env` TS error)
+
+---
+
+## 22. Landing Page — Cross-Origin Links to React SPA
+
+**Date:** 2026-03-11
+
+**Problem:** The web blueprint's landing page had two links pointing to Flask routes that were removed in Phase 8:
+- "View Samples" → `/samples` (dead route)
+- "Login to Dashboard" → `/login` (Flask session login, not the React SPA)
+
+When a user clicked either button, the request hit Flask on port 80, which no longer handled those paths.
+
+**Fix:** Added `SPA_BASE_URL` config variable (env var, default `http://localhost:8080`) and passed it to the landing template. The two buttons now link to `{{ spa_base_url }}/samples` and `{{ spa_base_url }}/login`, pointing directly into the React SPA.
+
+**Local dev flow:**
+1. User visits `http://localhost` (Flask landing)
+2. Clicks "View Samples" → `http://localhost:8080/samples` (React SPA)
+3. React's `ProtectedRoute` redirects unauthenticated users to `/login` within the SPA
+4. User logs in via `POST /api/v1/auth/login`, lands on `/samples`
+
+**Production:** set `SPA_BASE_URL=https://app.yourdomain.com` in `backend/.env`.
+
+**Modified files:**
+- `backend/app/src/config.py` — added `SPA_BASE_URL`
+- `backend/app/src/blueprints/web/routes.py` — pass `spa_base_url` to template
+- `backend/app/src/blueprints/web/templates/landing.html` — updated `href` attributes
+- `backend/.env.example` — documented `SPA_BASE_URL`
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |

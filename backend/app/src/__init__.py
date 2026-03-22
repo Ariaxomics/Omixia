@@ -1,4 +1,5 @@
 from flask import Flask
+from flask_cors import CORS
 from src.config import Config
 from src.extensions import mongo_client, redis_client, init_session
 from src.blueprints.api_v1.routes import api_bp
@@ -18,6 +19,13 @@ def create_app():
     mongo_client.init_app(app)
     redis_client.init_app(app)
     init_session(app)
+
+    origins = app.config.get("ALLOWED_ORIGINS") or []
+    CORS(
+        app,
+        resources={r"/api/*": {"origins": origins if origins else "*"}},
+        supports_credentials=True,
+    )
 
     @app.cli.command("load-demo")
     def load_demo():

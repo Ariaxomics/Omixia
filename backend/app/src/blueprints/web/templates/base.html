@@ -8,49 +8,50 @@
     <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 </head>
 
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-50 min-h-screen">
 
-<nav class="bg-gray-900 text-white px-6 py-4 flex justify-between items-center">
+<nav class="bg-blue-700 text-white shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 flex items-center h-14 gap-6">
 
-    <div class="flex space-x-6 items-center">
-        <a href="/" class="text-xl font-bold tracking-wide">
+        <a href="/" class="font-bold text-lg tracking-tight mr-2 hover:opacity-80 transition-opacity">
             Omixia
         </a>
 
-        <a href="/" class="hover:text-gray-300 transition">Home</a>
-        <a href="/samples" class="hover:text-gray-300 transition">Samples</a>
-        <a href="/knowledge" class="hover:text-gray-300 transition">Knowledge DB</a>
-        <a href="/cohort" class="hover:text-gray-300 transition">Cohort</a>
-        <a href="/lab-dashboard" class="hover:text-gray-300 transition">Lab Dashboard</a>
-        <a href="/gap-analysis" class="hover:text-gray-300 transition">Gap Analysis</a>
-        <a href="/federation" class="hover:text-gray-300 transition">Federation</a>
-        <a href="/about" class="hover:text-gray-300 transition">About</a>
-    </div>
+        <a href="{{ spa_base_url }}/samples"     class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Samples</a>
+        <a href="{{ spa_base_url }}/knowledge"   class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Knowledge DB</a>
+        <a href="{{ spa_base_url }}/cohort"      class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Cohort</a>
+        <a href="{{ spa_base_url }}/lab-dashboard" class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Lab Dashboard</a>
+        <a href="{{ spa_base_url }}/gap-analysis"  class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Gap Analysis</a>
+        <a href="{{ spa_base_url }}/federation"    class="text-sm font-medium px-2 py-1 rounded hover:bg-blue-600 transition-colors">Federation</a>
 
-    <div class="flex items-center space-x-3">
-        {% if session.get('user') %}
-            <span class="text-gray-400 text-sm">{{ session['user']['username'] }}</span>
-            <a href="/dashboard"
-               class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">
-               Dashboard
-            </a>
-            <form action="/logout" method="post" class="inline">
-                <button type="submit"
-                        class="bg-gray-700 px-4 py-2 rounded hover:bg-gray-600 transition text-sm">
-                    Logout
-                </button>
-            </form>
-        {% else %}
-            <a href="/login"
-               class="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 transition">
-               Login
-            </a>
-        {% endif %}
-    </div>
+        <div class="ml-auto flex items-center gap-3 text-sm">
+            {% if session.get('user') %}
+                <span class="opacity-80">{{ session['user']['full_name'] or session['user']['username'] }}</span>
+                <span class="px-2 py-0.5 rounded bg-blue-500 text-xs font-medium capitalize">
+                    {{ session['user']['role'] | replace('_', ' ') }}
+                </span>
+                <a href="{{ spa_base_url }}"
+                   class="px-3 py-1 rounded bg-blue-800 hover:bg-blue-900 transition-colors">
+                    Dashboard
+                </a>
+                <form action="/logout" method="post" class="inline">
+                    <button type="submit"
+                            class="px-3 py-1 rounded bg-blue-800 hover:bg-blue-900 transition-colors">
+                        Logout
+                    </button>
+                </form>
+            {% else %}
+                <a href="{{ spa_base_url }}/login"
+                   class="px-3 py-1 rounded bg-blue-800 hover:bg-blue-900 transition-colors">
+                    Login
+                </a>
+            {% endif %}
+        </div>
 
+    </div>
 </nav>
 
-<main class="max-w-7xl mx-auto px-6 py-10">
+<main class="max-w-7xl mx-auto px-4 py-6">
     {% block content %}{% endblock %}
 </main>
 

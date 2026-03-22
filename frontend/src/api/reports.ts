@@ -25,4 +25,8 @@ export const reportsApi = {
     const res = await client.get(`/reports/${reportId}/export`)
     return res.data
   },
+  issuePortalToken: async (reportId: string) => {
+    const res = await client.post(`/reports/${reportId}/portal-token`, {})
+    return res.data.data as { portal_url: string; expires_at: string }
+  },
 }

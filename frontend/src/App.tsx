@@ -11,6 +11,7 @@ import LabDashboardPage from './pages/LabDashboardPage'
 import GapAnalysisPage from './pages/GapAnalysisPage'
 import CohortPage from './pages/CohortPage'
 import UsersPage from './pages/UsersPage'
+import FederationPage from './pages/FederationPage'
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
               <Route path="/gap-analysis" element={<GapAnalysisPage />} />
               <Route path="/cohort" element={<CohortPage />} />
               <Route path="/users" element={<UsersPage />} />
+              <Route path="/federation" element={<FederationPage />} />
             </Route>
           </Route>
         </Routes>

@@ -1,4 +1,4 @@
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const navItems = [
@@ -9,22 +9,29 @@ const navItems = [
   { to: '/lab-dashboard', label: 'Lab Dashboard', roles: ['admin', 'lab_director', 'senior_reviewer'] },
   { to: '/gap-analysis', label: 'Gap Analysis', roles: ['admin', 'lab_director'] },
   { to: '/users', label: 'Users', roles: ['admin', 'lab_director', 'senior_reviewer'] },
+  { to: '/federation', label: 'Federation', roles: ['lab_director'] },
 ]
 
 export default function Layout() {
   const { user, logout } = useAuth()
-  const navigate = useNavigate()
+  const landingUrl =
+    import.meta.env.VITE_LANDING_URL ?? `${window.location.protocol}//${window.location.hostname}`
 
   const handleLogout = async () => {
     await logout()
-    navigate('/login')
+    window.location.href = landingUrl
   }
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <nav className="bg-blue-700 text-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 flex items-center h-14 gap-6">
-          <span className="font-bold text-lg tracking-tight mr-2">Omixia</span>
+          <a
+            href={landingUrl}
+            className="font-bold text-lg tracking-tight mr-2 hover:opacity-80 transition-opacity"
+          >
+            Omixia
+          </a>
           {navItems
             .filter((item) => !item.roles || item.roles.includes(user?.role ?? ''))
             .map((item) => (

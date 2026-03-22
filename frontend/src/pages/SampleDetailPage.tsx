@@ -4,6 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { samplesApi } from '../api/samples'
 import { variantsApi, ReviewPayload } from '../api/variants'
 import { reportsApi } from '../api/reports'
+import client from '../api/client'
+import { useAuth } from '../contexts/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 import Badge from '../components/Badge'
 
@@ -512,7 +514,10 @@ function PreflightTab({ assayId }: { assayId: string }) {
 
 function ReportsTab({ assayId }: { assayId: string }) {
   const qc = useQueryClient()
+  const { user } = useAuth()
   const [error, setError] = useState('')
+  const [tokenResults, setTokenResults] = useState<Record<string, string>>({})
+  const [tokenErrors, setTokenErrors] = useState<Record<string, string>>({})
 
   const { data: reports, isLoading } = useQuery({
     queryKey: ['reports', assayId],
@@ -539,7 +544,25 @@ function ReportsTab({ assayId }: { assayId: string }) {
   const finalise = useMutation({
     mutationFn: (reportId: string) => reportsApi.finalise(reportId),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reports', assayId] }),
+    onError: (err: unknown) => {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setError(msg || 'Failed to finalise report')
+    },
   })
+
+  const issueToken = async (reportId: string) => {
+    try {
+      const result = await reportsApi.issuePortalToken(reportId)
+      setTokenResults((prev) => ({ ...prev, [reportId]: result.portal_url }))
+      setTokenErrors((prev) => { const n = { ...prev }; delete n[reportId]; return n })
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
+      setTokenErrors((prev) => ({ ...prev, [reportId]: msg || 'Failed to issue token' }))
+    }
+  }
+
+  const canIssueToken = ['lab_director', 'senior_reviewer', 'admin'].includes(user?.role ?? '')
+  const exportBase = client.defaults.baseURL ?? '/api'
 
   if (isLoading) return <LoadingSpinner />
 
@@ -570,7 +593,7 @@ function ReportsTab({ assayId }: { assayId: string }) {
                 Created by {r.created_by_username as string} · Sign-offs:{' '}
                 {(r.sign_offs as unknown[])?.length ?? 0}
               </p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {r.status !== 'finalised' && (
                   <button
                     onClick={() => signOff.mutate(r.report_id as string)}
@@ -588,14 +611,31 @@ function ReportsTab({ assayId }: { assayId: string }) {
                   </button>
                 )}
                 <a
-                  href={`/api/reports/${r.report_id as string}/export`}
+                  href={`${exportBase}/reports/${r.report_id as string}/export`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="px-3 py-1 text-xs bg-blue-50 hover:bg-blue-100 text-blue-700 rounded font-medium transition-colors"
                 >
                   Export JSON
                 </a>
+                {canIssueToken && r.status === 'finalised' && (
+                  <button
+                    onClick={() => issueToken(r.report_id as string)}
+                    className="px-3 py-1 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 rounded font-medium transition-colors"
+                  >
+                    Issue physician link
+                  </button>
+                )}
               </div>
+              {tokenResults[r.report_id as string] && (
+                <div className="mt-3 p-2 bg-purple-50 rounded text-xs">
+                  <p className="text-purple-700 font-medium mb-1">Physician access link:</p>
+                  <code className="break-all text-purple-900">{tokenResults[r.report_id as string]}</code>
+                </div>
+              )}
+              {tokenErrors[r.report_id as string] && (
+                <p className="mt-2 text-xs text-red-600">{tokenErrors[r.report_id as string]}</p>
+              )}
             </div>
           ))}
         </div>
