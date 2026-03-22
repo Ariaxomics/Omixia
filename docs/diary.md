@@ -494,6 +494,184 @@ When a user clicked either button, the request hit Flask on port 80, which no lo
 
 ---
 
+---
+
+## 23. Phase 9 — Production Deployment (Cloudflare Free Tier)
+
+**Date:** 2026-03-22
+
+**Goal:** Deploy Omixia as a publicly accessible demo at zero cost using Cloudflare Quick Tunnel (backend) and Cloudflare Pages (frontend SPA).
+
+---
+
+### 23.1 — Ops Documentation (`docs/ops.md`)
+
+Created `docs/ops.md` as the operational runbook for the deployment. Contains:
+- Secret rotation procedures for `FLASK_SECRET_KEY`, MongoDB password, and Redis
+- Full environment variable reference table (what each var does and where it is read)
+- Backup and restore instructions using `scripts/backup_mongo.sh`
+- Docker container management commands (restart, rebuild, logs)
+
+**New file:** `docs/ops.md`
+
+---
+
+### 23.2 — MongoDB Backup Script (`scripts/backup_mongo.sh`)
+
+Created a shell script that produces timestamped `mongodump` snapshots:
+- Runs `mongodump` inside the `mongo_omixia` container via `docker exec`
+- Copies the dump to a local `backups/` directory
+- Auto-reads `MONGO_PASSWORD` from `backend/.env` if not set in the environment
+- Cleans up the temp dump inside the container after copying
+- Deletes local backups older than 30 days automatically
+
+Usage:
+```bash
+bash scripts/backup_mongo.sh
+```
+
+**New file:** `scripts/backup_mongo.sh`
+
+---
+
+### 23.3 — `.gitignore` Fix: Committed `node_modules` Symlinks
+
+**Problem:** The Cloudflare Pages CI build failed with:
+```
+Cannot find module '../lib/tsc.js'
+```
+Root cause: `.gitignore` contained `frontend/node_modules/*`, which ignores the *contents* of `node_modules/` but not the directory itself. Git had tracked the `frontend/node_modules/.bin/` symlinks (including the `tsc` symlink). The symlink pointed to `../typescript/bin/tsc`, which in turn called `../lib/tsc.js` — a file that was gitignored. On Cloudflare Pages (a fresh clone), the symlink existed but the target did not, causing the build to crash.
+
+**Fix:**
+1. Changed `frontend/node_modules/*` → `frontend/node_modules/` in `.gitignore` (ignores the directory entirely)
+2. Added `backups/` entry to `.gitignore`
+3. Removed all 2416 tracked files under `frontend/node_modules/`:
+```bash
+git rm -r --cached frontend/node_modules/
+git commit -m "remove accidentally tracked node_modules"
+```
+
+**File:** `.gitignore`
+
+---
+
+### 23.4 — `config.py` Bug Fix: Sessions Always Broken
+
+**Problem:** Login appeared to succeed (201 response from the API) but every subsequent request was unauthenticated. Every protected route returned 401 immediately after login.
+
+**Root cause:** `config.py` read `os.getenv("SECRET_KEY")` but `backend/.env` defined `FLASK_SECRET_KEY`. Because `SECRET_KEY` was never set in the environment, `app.config["SECRET_KEY"]` was `None`. Flask could not sign session cookies, so every session was discarded on the next request.
+
+**Fix:**
+```python
+# config.py line 5 — before
+SECRET_KEY = os.getenv("SECRET_KEY")
+# after
+SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+```
+
+Also renamed the variable in `backend/.env` to make the name unambiguous:
+```
+# before
+SECRET_KEY=saile
+# after
+FLASK_SECRET_KEY=saile
+```
+
+**Files:** `backend/app/src/config.py`, `backend/.env`
+
+---
+
+### 23.5 — Production CORS / Session Cookie Configuration
+
+Set the following values in `backend/.env` to enable cross-origin session cookies between Cloudflare Pages (frontend) and the backend tunnel:
+
+| Variable | Value | Why |
+|---|---|---|
+| `SESSION_COOKIE_SAMESITE` | `None` | Required for cross-origin cookie sending |
+| `SESSION_COOKIE_SECURE` | `True` | Required when `SameSite=None` (HTTPS only) |
+| `ALLOWED_ORIGINS` | `https://omixia.pages.dev` | Restricts Flask-CORS to the Pages origin |
+| `SPA_BASE_URL` | `https://omixia.pages.dev` | Used by Flask landing page links |
+
+These values were already scaffolded in `config.py` (Phase 8); this step activated them for the live deployment.
+
+---
+
+### 23.6 — Cloudflare Quick Tunnel (Backend)
+
+Used Cloudflare's free Quick Tunnel to expose the Docker nginx container (port 80) to the public internet without a Cloudflare account or domain:
+
+```bash
+cloudflared tunnel --url http://localhost:80
+```
+
+This generates a random `*.trycloudflare.com` URL that proxies all traffic to `localhost:80`. The tunnel URL is ephemeral — it changes every time the tunnel process is restarted.
+
+**Tunnel URL history:**
+- Session 1: `https://innovative-captured-urls-flooring.trycloudflare.com`
+- Session 2: `https://kingdom-manager-properly-concept.trycloudflare.com`
+
+**Limitation:** Each tunnel restart requires rebuilding the React frontend with the new `VITE_API_BASE_URL` and redeploying to Cloudflare Pages. A named tunnel (requires Cloudflare account + custom domain) would give a stable URL.
+
+---
+
+### 23.7 — Cloudflare Pages (Frontend)
+
+Deployed the React SPA to Cloudflare Pages at `https://omixia.pages.dev`:
+
+**Pages project settings:**
+- Repository: GitHub `dev` branch
+- Build command: `cd frontend && npm run build`
+- Build output: `frontend/dist`
+- Environment variable: `VITE_API_BASE_URL=https://<tunnel-url>/api`
+
+The `VITE_API_BASE_URL` is baked into the JS bundle at build time by Vite. If the tunnel URL changes, the env var must be updated in the Pages dashboard and a new deployment triggered.
+
+**Issue encountered:** The first successful Pages build was deploying an old commit (`d436a26`) because the node_modules fix commits had not been pushed yet. Fix: `git push origin dev`.
+
+---
+
+### 23.8 — Nginx `proxy_hide_header` Removed (CORS Fix)
+
+**Problem:** After the Pages deployment went live, login returned a network error in the browser with "CORS missing allow header" visible in the Network tab.
+
+**Root cause:** `backend/nginx/default.conf` contained:
+```nginx
+proxy_hide_header Access-Control-Allow-Origin;
+```
+in both `/api/` location blocks. This directive tells nginx to **strip** that response header from the upstream before forwarding to the browser. Flask-CORS was correctly setting the `Access-Control-Allow-Origin` header, but nginx was removing it. The browser never received the CORS header and blocked the response.
+
+The directive was added in Phase 8 with the comment "prevent nginx from adding duplicates", but `proxy_hide_header` removes upstream headers — the opposite of the intended effect. Nginx was not adding its own CORS headers; there were no duplicates to prevent.
+
+**Fix:** Removed both `proxy_hide_header Access-Control-Allow-Origin;` lines from `nginx/default.conf` and restarted the nginx container:
+```bash
+docker compose -f backend/docker-compose.yml restart nginx
+```
+
+After this fix, login worked and the dashboard at `https://omixia.pages.dev/dashboard` was accessible.
+
+**File:** `backend/nginx/default.conf`
+
+---
+
+### 23.9 — Deployment Architecture (Current State)
+
+```
+Browser
+  │
+  ├─ https://omixia.pages.dev        (Cloudflare Pages — React SPA)
+  │    └─ VITE_API_BASE_URL → https://<tunnel>.trycloudflare.com/api
+  │
+  └─ https://<tunnel>.trycloudflare.com
+       └─ Cloudflare Quick Tunnel → localhost:80
+            └─ nginx (Docker)
+                 ├─ /api/* → Flask app:8000
+                 └─ /      → Flask app:8000 (landing, login, portal)
+```
+
+Demo credentials: `admin` / `omixia_demo_1`
+
+---
+
 ## Summary of Affected Files
 
 | File | Changes |
