@@ -51,6 +51,37 @@ def api_login():
     return jsonify({"data": session["user"]})
 
 
+@api_bp.route("/auth/register", methods=["POST"])
+def api_register():
+    from src.services.users import UserService
+    data = request.get_json() or {}
+    username = data.get("username", "").strip()
+    email = data.get("email", "").strip()
+    full_name = data.get("full_name", "").strip()
+    password = data.get("password", "")
+
+    missing = [f for f, v in [("username", username), ("email", email), ("full_name", full_name), ("password", password)] if not v]
+    if missing:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing)}"}), 400
+
+    if len(password) < 12:
+        return jsonify({"error": "Password must be at least 12 characters"}), 400
+
+    try:
+        user = UserService.create_user(username, email, "reviewer", full_name, password)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 409
+
+    session["user"] = {
+        "user_id": user["user_id"],
+        "username": user["username"],
+        "role": user["role"],
+        "full_name": user.get("full_name", ""),
+        "email": user.get("email", ""),
+    }
+    return jsonify({"data": session["user"]}), 201
+
+
 @api_bp.route("/auth/logout", methods=["POST"])
 def api_logout():
     session.clear()
