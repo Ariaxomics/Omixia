@@ -52,6 +52,7 @@ def api_login():
 
 
 @api_bp.route("/auth/register", methods=["POST"])
+@require_role("admin", "lab_director")
 def api_register():
     from src.services.users import UserService
     data = request.get_json() or {}
@@ -59,6 +60,11 @@ def api_register():
     email = data.get("email", "").strip()
     full_name = data.get("full_name", "").strip()
     password = data.get("password", "")
+    role = data.get("role", "reviewer").strip()
+
+    valid_roles = {"reviewer", "senior_reviewer", "lab_director", "bioinformatician", "admin"}
+    if role not in valid_roles:
+        return jsonify({"error": f"Invalid role. Must be one of: {', '.join(sorted(valid_roles))}"}), 400
 
     missing = [f for f, v in [("username", username), ("email", email), ("full_name", full_name), ("password", password)] if not v]
     if missing:
@@ -68,18 +74,17 @@ def api_register():
         return jsonify({"error": "Password must be at least 12 characters"}), 400
 
     try:
-        user = UserService.create_user(username, email, "reviewer", full_name, password)
+        user = UserService.create_user(username, email, role, full_name, password)
     except ValueError as e:
         return jsonify({"error": str(e)}), 409
 
-    session["user"] = {
+    return jsonify({"data": {
         "user_id": user["user_id"],
         "username": user["username"],
         "role": user["role"],
         "full_name": user.get("full_name", ""),
         "email": user.get("email", ""),
-    }
-    return jsonify({"data": session["user"]}), 201
+    }}), 201
 
 
 @api_bp.route("/auth/logout", methods=["POST"])
