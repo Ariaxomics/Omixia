@@ -6,24 +6,26 @@ Read-only access to the physician's own patients' finalised reports.
 No internal workflow, knowledge database, or other case visibility.
 """
 
-from flask import Blueprint, render_template, redirect, url_for, request, session, abort
+from fastapi import APIRouter, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
 
 from src.extensions import mongo_client
 from src.services.portal import PortalService
 
-portal_bp = Blueprint(
-    "portal",
-    __name__,
-    template_folder="templates",
-    url_prefix="/portal",
-)
+router = APIRouter(prefix="/portal")
+templates = Jinja2Templates(directory="src/templates/portal")
 
 PORTAL_SESSION_KEY = "portal_token"
 
 
-def _portal_report():
+def _render(request: Request, template_name: str, **context):
+    return templates.TemplateResponse(template_name, {"request": request, **context})
+
+
+def _portal_report(request: Request):
     """Return the report for the current portal session, or None."""
-    token = session.get(PORTAL_SESSION_KEY)
+    token = request.state.session.get(PORTAL_SESSION_KEY)
     if not token:
         return None, None
     token_doc = PortalService.validate_token(token)
@@ -37,29 +39,28 @@ def _portal_report():
     return token_doc, report
 
 
-@portal_bp.route("/")
-def portal_index():
-    return render_template("portal/login.html")
+@router.get("/", response_class=HTMLResponse)
+def portal_index(request: Request):
+    return _render(request, "login.html")
 
 
-@portal_bp.route("/access/<token>")
-def portal_access(token):
+@router.get("/access/{token}")
+def portal_access(token: str, request: Request):
     """Direct access link sent to physician. Validates token and establishes portal session."""
     token_doc = PortalService.validate_token(token)
     if not token_doc:
-        return render_template("portal/login.html", error="This link is invalid or has expired.")
+        return _render(request, "login.html", error="This link is invalid or has expired.")
 
-    session[PORTAL_SESSION_KEY] = token
-    return redirect(url_for("portal.portal_report"))
+    request.state.session[PORTAL_SESSION_KEY] = token
+    return RedirectResponse(url="/portal/report", status_code=303)
 
 
-@portal_bp.route("/report")
-def portal_report():
-    token_doc, report = _portal_report()
+@router.get("/report", response_class=HTMLResponse)
+def portal_report(request: Request):
+    token_doc, report = _portal_report(request)
     if not report:
-        return render_template("portal/login.html", error="Session expired. Please use your access link.")
+        return _render(request, "login.html", error="Session expired. Please use your access link.")
 
-    db = mongo_client.db
     snapshot = report.get("snapshot", {})
     sample = snapshot.get("sample", {})
     assay = snapshot.get("assay", {})
@@ -78,8 +79,9 @@ def portal_report():
     cnvs = reportable(snapshot.get("cnvs", []))
     svs = reportable(snapshot.get("svs", []))
 
-    return render_template(
-        "portal/report.html",
+    return _render(
+        request,
+        "report.html",
         report=report,
         sample=sample,
         assay=assay,
@@ -92,7 +94,7 @@ def portal_report():
     )
 
 
-@portal_bp.route("/logout", methods=["POST"])
-def portal_logout():
-    session.pop(PORTAL_SESSION_KEY, None)
-    return redirect(url_for("portal.portal_index"))
+@router.post("/logout")
+def portal_logout(request: Request):
+    request.state.session.pop(PORTAL_SESSION_KEY, None)
+    return RedirectResponse(url="/portal/", status_code=303)

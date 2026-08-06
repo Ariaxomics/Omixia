@@ -1,47 +1,40 @@
-from functools import wraps
+from fastapi import HTTPException, Request
 
-from flask import jsonify, redirect, request, session, url_for
+from src.session import Session
 
 
-def require_login(f):
-    """Redirect to login (web) or return 401 (API) if no active session."""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if "user" not in session:
-            if request.blueprint == "api":
-                return jsonify({"error": "Unauthorised"}), 401
-            return redirect(url_for("web.login"))
-        return f(*args, **kwargs)
-    return decorated
+def get_session(request: Request) -> Session:
+    return request.state.session
+
+
+def current_user(request: Request) -> dict | None:
+    """Return the current session user dict, or None."""
+    return request.state.session.get("user")
+
+
+def current_username(request: Request) -> str:
+    """Return username string for audit logging, falls back to 'unknown'."""
+    user = current_user(request)
+    return user["username"] if user else "unknown"
+
+
+def require_login(request: Request) -> dict:
+    """FastAPI dependency: 401 if no active session."""
+    user = current_user(request)
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorised")
+    return user
 
 
 def require_role(*roles: str):
-    """Enforce that the logged-in user has one of the given roles.
-    Implies require_login — no need to stack both decorators.
-    """
-    def decorator(f):
-        @wraps(f)
-        def decorated(*args, **kwargs):
-            user = session.get("user")
-            if not user:
-                if request.blueprint == "api":
-                    return jsonify({"error": "Unauthorised"}), 401
-                return redirect(url_for("web.login"))
-            if user.get("role") not in roles:
-                if request.blueprint == "api":
-                    return jsonify({"error": "Forbidden"}), 403
-                return redirect(url_for("web.dashboard"))
-            return f(*args, **kwargs)
-        return decorated
-    return decorator
+    """FastAPI dependency factory: 401 if no session, 403 if role not in roles."""
 
+    def dependency(request: Request) -> dict:
+        user = current_user(request)
+        if not user:
+            raise HTTPException(status_code=401, detail="Unauthorised")
+        if user.get("role") not in roles:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        return user
 
-def current_user() -> dict | None:
-    """Return the current session user dict, or None."""
-    return session.get("user")
-
-
-def current_username() -> str:
-    """Return username string for audit logging, falls back to 'unknown'."""
-    user = session.get("user")
-    return user["username"] if user else "unknown"
+    return dependency

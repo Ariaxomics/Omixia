@@ -1,35 +1,31 @@
-import click
-from flask import Flask
+import typer
 
 from src.services.users import VALID_ROLES, UserService
 
 
-def register_create_user_command(app: Flask) -> None:
-    @app.cli.command("create-user")
-    @click.option("--username", required=True, help="Login username")
-    @click.option("--email", required=True, help="User email address")
-    @click.option("--full-name", required=True, help="Display name")
-    @click.option(
-        "--role",
-        required=True,
-        type=click.Choice(VALID_ROLES),
-        help="User role",
-    )
-    @click.password_option("--password", help="Login password (min 12 chars)")
-    def create_user(username: str, email: str, full_name: str, role: str, password: str) -> None:
-        """Create a new Omixia user."""
-        if len(password) < 12:
-            raise click.BadParameter("Password must be at least 12 characters.", param_hint="--password")
+def create_user(
+    username: str = typer.Option(..., help="Login username"),
+    email: str = typer.Option(..., help="User email address"),
+    full_name: str = typer.Option(..., help="Display name"),
+    role: str = typer.Option(..., help=f"User role. One of: {', '.join(VALID_ROLES)}"),
+    password: str = typer.Option(..., prompt=True, hide_input=True, confirmation_prompt=True, help="Login password (min 12 chars)"),
+) -> None:
+    """Create a new Omixia user."""
+    if role not in VALID_ROLES:
+        raise typer.BadParameter(f"Invalid role '{role}'. Must be one of: {', '.join(VALID_ROLES)}", param_hint="--role")
 
-        with app.app_context():
-            try:
-                user = UserService.create_user(
-                    username=username,
-                    email=email,
-                    role=role,
-                    full_name=full_name,
-                    password=password,
-                )
-                click.echo(f"Created user '{user['username']}' (role: {user['role']}, id: {user['user_id']})")
-            except ValueError as e:
-                raise click.ClickException(str(e))
+    if len(password) < 12:
+        raise typer.BadParameter("Password must be at least 12 characters.", param_hint="--password")
+
+    try:
+        user = UserService.create_user(
+            username=username,
+            email=email,
+            role=role,
+            full_name=full_name,
+            password=password,
+        )
+        typer.echo(f"Created user '{user['username']}' (role: {user['role']}, id: {user['user_id']})")
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1) from e

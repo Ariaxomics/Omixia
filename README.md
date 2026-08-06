@@ -6,54 +6,70 @@ Omixia supports SNV, CNV, SV, MSI, and TMB analysis with a multi-reviewer consen
 
 ## Documentation
 
-- **[Developer Guide](docs/DEVELOPER_GUIDE.md)** — full architecture, feature reference, API reference, CLI commands, configuration
-- **[Product Specification](SPEC.md)** — requirements and design decisions
+Start with whichever matches what you're trying to do:
+
+| I want to… | Read |
+|---|---|
+| Understand how the system is built and why | **[Architecture](docs/ARCHITECTURE.md)** — layers, request lifecycle, data model, subsystems, known issues |
+| Set it up, run it, or change it | **[Developer Guide](docs/DEVELOPER_GUIDE.md)** — quick start, common tasks, API reference, CLI, configuration |
+| Deploy, back up, or troubleshoot it | **[Operations](docs/OPERATIONS.md)** — secrets, backups, container management |
+| See what changed recently | **[Changelog](CHANGELOG.md)** |
+| Know what it's *supposed* to do | **[Product Specification](SPEC.md)** — requirements + phase checklist |
+| Read historical engineering narrative | [Development Diary](docs/diary.md) — frozen; superseded by the changelog |
+
+Contributing? [CLAUDE.md](CLAUDE.md) carries the Definition of Done and the Documentation Map — which docs to update for each kind of change.
+
+The live API contract is always at **`/docs`** on a running backend (auto-generated OpenAPI).
 
 ## Stack
 
 | Layer | Technology |
 |---|---|
-| Backend | Flask 3.x, Python 3.12 |
-| Database | MongoDB 7 |
+| Backend | FastAPI 0.115.x, Python 3.12 (Gunicorn + Uvicorn workers) |
+| Database | MongoDB 7 (PyMongo, synchronous) |
 | Cache / Sessions | Redis 7 |
-| Server-rendered UI | Jinja2 + Tailwind CSS + HTMX |
 | React SPA | React 18, TypeScript, Vite, TailwindCSS, TanStack Query |
+| Server-rendered pages | Jinja2 — landing, login, physician portal only |
+| CLI | Typer |
 
 ## Quick Start
+
+Requires Docker and Docker Compose.
 
 ### Backend
 
 ```bash
 cd backend
+cp .env.example .env          # then set MONGO_INITDB_ROOT_PASSWORD + FLASK_SECRET_KEY
 
-# Install dependencies
-pip install -r app/requirements.txt
+docker compose up -d --build
 
 # Load demo data
-flask load-demo
+docker exec app_omixia python cli.py load-demo
 
-# Run the dev server (default: http://localhost:5000)
-flask run
+# Verify
+curl http://localhost/api/health     # {"status":"ok","service":"omixia"}
 ```
+
+Interactive API docs are generated automatically at <http://localhost/docs>.
 
 ### React Frontend
 
 ```bash
 cd frontend
-
-# Install dependencies
 npm install
-
-# Start the dev server (default: http://localhost:3000)
-npm run dev
+npm run dev          # http://localhost:3000
 ```
 
-The Vite dev server proxies all `/api` requests to `http://localhost:5000`, so the Flask backend must be running first.
+The Vite dev server proxies `/api` to `http://localhost:80` (nginx), so the backend stack must be up first.
+
+Alternatively `npm run build` writes to `frontend/dist/`, which nginx serves on <http://localhost:8080>.
 
 Demo credentials (password: `omixia_demo_1`):
 
 | Username | Role |
 |---|---|
+| `admin` | admin |
 | `geneticist` | reviewer |
 | `senior` | senior_reviewer |
 | `director` | lab_director |
@@ -70,3 +86,7 @@ Demo credentials (password: `omixia_demo_1`):
 | 5 | Knowledge Database — variant knowledge CRUD, evidence panel, full-text search | Done |
 | 6 | Report Generation — snapshot, preflight checklist, sign-offs, JSON export | Done |
 | 7 | Advanced Features — TAT/SLA dashboard, physician portal, gap analysis, cohort query, federated knowledge | Done |
+| 8 | Architecture Harmonisation — React sole UI, slim server-rendered surface, CORS | Done |
+| 9 | Production Deployment — Cloudflare Tunnel + Pages, backups, monitoring | Pending |
+
+The backend was migrated from Flask to FastAPI on 2026-08-05; see `docs/diary.md` §24 for the rationale and gotchas.

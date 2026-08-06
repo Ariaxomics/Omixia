@@ -1,192 +1,136 @@
 # Omixia — Developer Guide
 
-**Version:** 1.1
-**Last Updated:** 2026-03-08
-**Branch:** dev
+**Version:** 2.1
+**Last Updated:** 2026-08-05
+
+How to set up, run, and change Omixia. For *how the system is built and why*, see [Architecture](ARCHITECTURE.md). For running it in production, see [Operations](OPERATIONS.md).
 
 ---
 
 ## Table of Contents
 
-1. [Architecture Overview](#architecture-overview)
-2. [Project Structure](#project-structure)
-3. [Getting Started](#getting-started)
-4. [Authentication & Roles](#authentication--roles)
+1. [Getting Started](#getting-started)
+2. [Running the Application](#running-the-application)
+3. [Authentication & Roles](#authentication--roles)
+4. [Common Tasks](#common-tasks)
 5. [React Frontend](#react-frontend)
-6. [Data Models](#data-models)
-7. [Feature Reference](#feature-reference)
-   - [Phase 1 — Foundation](#phase-1--foundation)
-   - [Phase 2 — Core Review Workflow](#phase-2--core-review-workflow)
-   - [Phase 3 — Variant Types](#phase-3--variant-types)
-   - [Phase 4 — Data Ingestion](#phase-4--data-ingestion)
-   - [Phase 5 — Knowledge Database](#phase-5--knowledge-database)
-   - [Phase 6 — Report Generation](#phase-6--report-generation)
-   - [Phase 7 — Advanced Features](#phase-7--advanced-features)
-8. [API Reference](#api-reference)
-9. [CLI Commands](#cli-commands)
-10. [Database Indexes](#database-indexes)
-11. [Configuration](#configuration)
-
----
-
-## Architecture Overview
-
-Omixia is a clinical-grade somatic variant interpretation and reporting platform built with:
-
-| Layer | Technology |
-|---|---|
-| Backend | Flask 3.x, Python 3.12 |
-| Database | MongoDB 7 (document store) |
-| Cache / Sessions | Redis 7 |
-| Server-rendered UI | Jinja2 + Tailwind CSS + HTMX |
-| React SPA | React 18, TypeScript, Vite, TailwindCSS, TanStack Query, Axios |
-| Server | Gunicorn + Nginx |
-| VCF normalisation | bcftools norm (subprocess) |
-| Variant annotation | Ensembl VEP (subprocess) |
-
-**Design principles:**
-- Two frontend options share the same REST API: (1) Jinja2 + HTMX server-rendered UI, (2) standalone React SPA
-- Services layer encapsulates all business logic; blueprints are thin routing only
-- Append-only audit log — no updates or deletes on `audit_log`
-- Optimistic locking on variant reviews using MongoDB `$expr` array length checks
-- All clinical identifiers are pseudonymised; real patient identity lives in an external system
-
----
-
-## Project Structure
-
-```
-frontend/                      # React SPA (see React Frontend section)
-  src/
-    api/                       # Axios API modules per domain
-    components/                # Shared UI components
-    contexts/                  # React contexts (auth)
-    pages/                     # One file per route/page
-
-backend/
-  app/
-    src/
-      __init__.py              # Flask app factory, blueprint + CLI registration
-      auth.py                  # @require_login, @require_role decorators, session helpers
-      config.py                # Config class reading from environment variables
-      extensions.py            # mongo_client, redis_client singletons
-      blueprints/
-        api_v1/
-          routes.py            # All REST API endpoints (prefix: /api)
-        web/
-          routes.py            # All HTMX/HTML web routes
-          templates/
-            base.html          # Nav + layout shell
-            samples.html       # Main review workspace (tabbed)
-            dashboard.html
-            knowledge.html
-            lab_dashboard.html
-            gap_analysis.html
-            cohort.html
-            federation.html
-            partials/          # HTMX swap targets
-              snv_table.html / snv_detail_form.html
-              cnv_table.html / cnv_detail_form.html
-              sv_table.html / sv_detail_form.html
-              biomarker_card.html
-              preflight_panel.html
-              report_panel.html
-              callsets_panel.html
-              knowledge_list.html / knowledge_entry.html / knowledge_form.html
-              lab_stats.html
-              gap_analysis_result.html
-              cohort_result.html
-              portal_tokens.html
-              federation_panel.html
-        portal/
-          routes.py            # Physician portal (prefix: /portal)
-          templates/portal/
-            login.html
-            report.html
-      services/
-        assay_config.py        # Assay configuration CRUD
-        audit.py               # Append-only audit log
-        biomarker.py           # MSI/TMB classification and review
-        federation.py          # Federated knowledge export/import
-        gap_analysis.py        # Assay gap analysis + cohort queries
-        ingestion.py           # VCF import pipeline (Phase 4)
-        knowledge.py           # Variant knowledge database
-        portal.py              # Physician portal token management
-        preflight.py           # Pre-finalisation checklist
-        report.py              # Report lifecycle management
-        samples.py             # Variant review state machine
-        tat.py                 # TAT/SLA tracking
-        users.py               # User management + authentication
-      db/
-        indexes.py             # MongoDB index definitions
-      cli/
-        create_user.py         # flask create-user command
-        import_vcf.py          # flask import-vcf command
-        load_demo.py           # flask load-demo command
-        watcher.py             # flask run-watcher command
-    demo_data/                 # Seed data loaded by flask load-demo
-      assay_configs.json
-      biomarkers.json
-      callsets.json
-      cnvs_raw.json
-      sample_assays.json
-      samples.json
-      snvs_raw.json
-      svs_raw.json
-      users.json
-      variant_knowledge.json
-```
+6. [API Reference](#api-reference)
+7. [CLI Commands](#cli-commands)
+8. [Configuration](#configuration)
 
 ---
 
 ## Getting Started
 
-### Environment Variables
+### Prerequisites
+
+- Docker + Docker Compose (this is how Mongo, Redis, the backend, and Nginx are run — there is no supported bare-metal setup)
+- Node.js 18+ and npm, only if you're working on the React frontend locally
+- (Optional, for the VCF ingestion pipeline only) `bcftools` and Ensembl VEP with a local cache — not required to run the app or click through the demo data
+
+### Clone & Configure
 
 ```bash
-SECRET_KEY=<random-32-byte-hex>
-SESSION_COOKIE_NAME=omixia_session
-FLASK_DEBUG=0
+git clone <repo-url> Omixia
+cd Omixia/backend
+cp .env.example .env
+```
 
-MONGO_URI=mongodb://mongo:27017/
-OMIXIA_DB_NAME=omixia
+Edit `backend/.env` — at minimum set real values for `MONGO_INITDB_ROOT_PASSWORD`, `FLASK_SECRET_KEY`, and leave the rest as-is for local development. See [Configuration](#configuration) for the full variable reference.
 
-CACHE_REDIS_URL=redis://redis:6379/0
-REPORTS_BASE_PATH=/data/reports
+---
 
-# Ingestion pipeline
-VCF_IMPORT_DIR=/data/vcf_inbox
-BCFTOOLS_BIN=bcftools
-VEP_BIN=vep
-VEP_CACHE_DIR=/data/vep_cache
-REF_FASTA=/data/reference/GRCh38.fa
+## Running the Application
+
+### Backend (Docker Compose)
+
+```bash
+cd backend
+docker compose up -d --build
+```
+
+This starts four containers: `mongo_omixia`, `redis_omixia`, `app_omixia` (FastAPI, served by Gunicorn with Uvicorn workers on :8000 internally), and `nginx_omixia`.
+
+Nginx exposes two ports:
+| Port | Purpose |
+|---|---|
+| `80` | Proxies everything to the FastAPI app — landing page, `/api/*`, `/portal/*` |
+| `8080` | Serves the built React SPA from `frontend/dist/` (local-only; production uses Cloudflare Pages instead) |
+
+Check it's up:
+```bash
+curl http://localhost/api/health
+# {"status":"ok","service":"omixia"}
 ```
 
 ### Load Demo Data
 
 ```bash
-flask load-demo
+docker exec app_omixia python cli.py load-demo
 ```
 
 This loads demo users, samples, assays, variants, and knowledge entries. All demo users share the password `omixia_demo_1`.
 
 | Username | Role |
 |---|---|
+| `admin` | `admin` |
 | `geneticist` | `reviewer` |
 | `senior` | `senior_reviewer` |
 | `director` | `lab_director` |
 | `bioinf` | `bioinformatician` |
 
+### Frontend (React SPA)
+
+```bash
+cd frontend
+npm install
+npm run dev          # http://localhost:3000, proxies /api → http://localhost:80 (nginx)
+```
+
+For a production-style local build served by nginx instead of the Vite dev server:
+```bash
+npm run build         # → frontend/dist/
+docker compose -f ../backend/docker-compose.yml restart nginx
+# then visit http://localhost:8080
+```
+
+### Applying Backend Code Changes
+
+`backend/app` is bind-mounted into the `app` container, but the Gunicorn/Uvicorn workers only load Python once at boot, and pip packages live in the image layer, not the mount. So:
+
+```bash
+# Source-only change (no requirements.txt edit):
+docker compose -f backend/docker-compose.yml up -d --force-recreate app
+
+# requirements.txt changed:
+docker compose -f backend/docker-compose.yml build app
+docker compose -f backend/docker-compose.yml up -d --force-recreate app
+```
+
+### Stopping Everything
+
+```bash
+docker compose -f backend/docker-compose.yml down          # keep volumes (Mongo/Redis data, reports)
+docker compose -f backend/docker-compose.yml down -v        # also wipe volumes
+```
+
 ---
 
 ## Authentication & Roles
 
-### Internal Users
+### Session Mechanism
 
-Session-based auth backed by Redis. Sessions expire after 8 hours of inactivity.
+Sessions are **cookie-based with server-side storage** — there is no JWT anywhere in the system.
+
+1. On login, the server generates an opaque session id (`secrets.token_urlsafe(32)`).
+2. The session dict is stored in Redis under `omixia:session:<id>`, TTL **7 days** (`SESSION_TTL_SECONDS` in `src/session.py`).
+3. The id is signed with `itsdangerous` using `SECRET_KEY` and set as an httponly cookie named by `SESSION_COOKIE_NAME`.
+4. Middleware in `main.py` loads the session onto `request.state.session` for every request and re-sets the cookie on the way out.
+
+`request.state.session` behaves like a dict but **writes through to Redis on every mutation** — assigning `session["user"] = {...}` persists immediately; there is no explicit save step.
 
 ```
-POST /login   { username, password }   → sets session["user"]
+POST /login   { username, password }   → sets session["user"]  (Jinja2 form)
 POST /logout  → clears session
 ```
 
@@ -194,22 +138,41 @@ POST /logout  → clears session
 
 | Role | Key capabilities |
 |---|---|
+| `admin` | Full access — user management plus everything below. |
 | `bioinformatician` | Import VCFs, manage callsets, view QC metrics. Cannot touch clinical interpretation. |
 | `reviewer` | Review variants, set tier, write interpretation. Cannot finalise reports. |
 | `senior_reviewer` | All reviewer capabilities + break tiebreaks + approve pre-finalisation + issue portal tokens. |
 | `lab_director` | Read-only across everything + unlock finalised reports + lab-wide dashboards + manage assay configs + federation management. |
 | `ordering_physician` | External portal only — read-only access to finalised reports via token link. |
 
-### Decorator Usage
+The canonical list is `VALID_ROLES` in `src/services/users.py`.
+
+### Enforcing Auth on an Endpoint
+
+Auth is applied with **FastAPI dependencies**, not decorators:
 
 ```python
-@require_login          # any authenticated internal user
-@require_role("lab_director", "senior_reviewer")   # role whitelist
+from fastapi import Depends
+from src.auth import require_login, require_role
+
+# any authenticated internal user
+@router.get("/thing", dependencies=[Depends(require_login)])
+def thing(): ...
+
+# role whitelist
+@router.post("/thing", dependencies=[Depends(require_role("lab_director", "senior_reviewer"))])
+def create_thing(): ...
 ```
+
+`require_login` raises `HTTPException(401)`; `require_role` raises 401 when unauthenticated and 403 on role mismatch. A global handler in `main.py` renders both as `{"error": "<message>"}`.
+
+When the handler needs the user object itself, take `request: Request` and call `current_user(request)` (or the `_require_user(request)` helper in `api_v1.py`, which 401s on a missing session).
+
+> ⚠️ **Known gap — several read endpoints are unauthenticated.** The endpoints marked `none` in the [API Reference](#api-reference) have no auth dependency and will serve clinical variant data to an unauthenticated caller. This is pre-existing behaviour inherited from the original Flask routes (they carried no `@require_login` either) and was preserved verbatim during the FastAPI migration — it is **not** a regression, but it is a real exposure that should be closed before any production deployment. Fix by adding `dependencies=[Depends(require_login)]` to each.
 
 ### React SPA Auth
 
-The React frontend uses three dedicated JSON endpoints on the API blueprint:
+The React frontend uses three dedicated JSON endpoints:
 
 ```
 POST /api/auth/login   { username, password }  → sets session cookie, returns user object
@@ -217,7 +180,9 @@ POST /api/auth/logout                           → clears session
 GET  /api/auth/me                              → returns current user or 401
 ```
 
-`AuthContext` calls `GET /api/auth/me` on mount to rehydrate the session. All subsequent API calls include `withCredentials: true` so the browser forwards the session cookie. The Vite dev server proxies `/api` to `http://localhost:5000` to avoid CORS.
+`AuthContext` calls `GET /api/auth/me` on mount to rehydrate the session. All API calls set `withCredentials: true` so the browser forwards the session cookie.
+
+In local development the Vite dev server proxies `/api` to `http://localhost:80` (nginx), so requests are same-origin and CORS never applies. In production the SPA is served from a different origin (Cloudflare Pages), so the cookie must be cross-origin capable — set `SESSION_COOKIE_SAMESITE=None`, `SESSION_COOKIE_SECURE=1`, and list the SPA origin in `ALLOWED_ORIGINS`.
 
 ### Physician Portal Auth
 
@@ -233,7 +198,7 @@ POST /portal/logout
 
 ## React Frontend
 
-A standalone React 18 + TypeScript SPA lives in `frontend/`. It consumes the same `/api` REST endpoints as any external client and shares the Flask session-cookie auth mechanism.
+A standalone React 18 + TypeScript SPA lives in `frontend/`. It is the sole interactive UI, consuming the `/api` REST endpoints and sharing the server's session-cookie auth mechanism.
 
 ### Tech Stack
 
@@ -252,7 +217,7 @@ A standalone React 18 + TypeScript SPA lives in `frontend/`. It consumes the sam
 frontend/
 ├── index.html
 ├── package.json
-├── vite.config.ts           # dev server on :3000, /api proxied to :5000
+├── vite.config.ts           # dev server on :3000, /api proxied to :80 (nginx)
 ├── tsconfig.json
 ├── tailwind.config.js
 ├── postcss.config.js
@@ -353,551 +318,197 @@ Editable actions in `KnowledgePage` (create / edit buttons) are also hidden for 
 ```bash
 cd frontend
 npm install
-npm run dev          # http://localhost:3000
-npm run build        # production build → dist/
+npm run dev          # http://localhost:3000 — proxies /api → http://localhost:80
+npm run build        # production build → dist/  (runs tsc first)
 npm run preview      # preview the production build locally
 ```
 
-The Flask backend must be running at `http://localhost:5000` for the Vite proxy to forward API calls correctly.
+The backend stack must be up (`docker compose up -d` in `backend/`) for the Vite proxy to reach the API — the proxy target is nginx on port 80, not the app container directly.
 
----
-
-## Data Models
-
-### users
-```
-user_id         string (uuid)
-username        string (unique index)
-email           string (unique index)
-role            enum
-full_name       string
-password_hash   string (bcrypt)
-created_at      datetime
-is_active       boolean
-```
-
-### samples
-```
-sample_id              string
-patient_pseudonym_id   string  ← hash only, real identity is external
-disease_group          "solid" | "haematological"
-disease_subtype        string
-created_at             datetime
-```
-
-### sample_assays
-```
-sample_assay_id         string
-sample_id               string
-assay_id / assay_version string
-active_callset_id       string
-status                  "pending_qc" | "qc_failed" | "analysis_ready" |
-                        "review_in_progress" | "review_complete" |
-                        "preflight_failed" | "finalised" |
-                        "report_delivered" | "superseded"
-priority                "routine" | "urgent"
-assigned_reviewers      [user_id]
-assigned_bioinformatician  user_id
-sla_due_at              datetime
-created_at              datetime
-state_history           [{status, timestamp, actor_user_id, note}]
-```
-
-### callsets
-```
-callset_id              string (unique index)
-sample_assay_id         string
-vcf_path / vcf_checksum string
-normalised_vcf_path     string
-qc_metrics              {mean_depth, pct_bases_100x, contamination_estimate,
-                         tumor_purity, tumor_purity_source, msi_score, tmb_mut_per_mb}
-qc_status               "pending" | "passed" | "failed" | "borderline"
-qc_failures             [string]
-annotation_vep_version  string
-import_status           "pending" | "normalising" | "annotating" | "imported" |
-                        "superseded" | "failed"
-import_error            string
-raw_counts              {snv, cnv, sv}
-created_at              datetime
-imported_by             user_id
-```
-
-### snvs_raw / cnvs_raw / svs_raw
-All variant collections share a `review_current` embedded document and a `review_history` append-only array. See [Phase 2](#phase-2--core-review-workflow) for the state machine.
-
-### variant_knowledge
-```
-knowledge_id        string (uuid, unique index)
-variant_type        "snv" | "cnv" | "sv"
-gene / hgvsp / hgvsc / consequence   (SNV key)
-event_type                           (CNV key)
-gene_5prime / gene_3prime            (SV key)
-disease_group / disease_subtype      string (null = pan-disease)
-tier                "tier_1" | "tier_2" | "tier_3" | "tier_4"
-interpretation      string
-evidence_summary    string
-evidence_tags       [string]
-observation_count   int
-version             int
-version_history     [{version, tier, interpretation, edited_by, edited_at, change_note}]
-is_contested        boolean
-federation_eligible boolean
-```
-
-### reports
-```
-report_id               string (uuid, unique index)
-sample_assay_id         string
-status                  "draft" | "pending_sign_off" | "finalised" | "delivered" |
-                        "amended" | "superseded"
-report_type             "primary" | "addendum" | "corrected"
-snapshot                { sample, assay, callset_qc, snvs, cnvs, svs, biomarkers,
-                          knowledge_versions_used, threshold_versions_used }
-preflight_checks        [{check_id, description, status, detail}]
-sign_offs               [{user_id, role, signed_at, signature_type}]
-created_at              datetime
-```
-
-### report_access_tokens
-```
-token           string (unique index, secrets.token_urlsafe(32))
-report_id       string
-issued_by_*     user metadata
-issued_at       datetime
-expires_at      datetime  (30-day TTL)
-revoked         boolean
-last_accessed_at datetime
-```
-
----
-
-## Feature Reference
-
----
-
-### Phase 1 — Foundation
-
-**Files:** `services/users.py`, `services/assay_config.py`, `services/audit.py`, `auth.py`
-
-#### User Management
-- `UserService.authenticate(username, password)` — bcrypt verify, returns user dict or None
-- `UserService.create_user(data)` — hashes password, assigns uuid, stores to `users`
-
-#### Assay Configuration
-- `AssayConfigService.get_active_config(assay_id)` — returns currently active assay config
-- `AssayConfigService.get_config(assay_id, version)` — exact version lookup
-- `AssayConfigService.create_config(data)` — create new assay config (lab_director / senior_reviewer only)
-
-Each assay config stores:
-- `gene_panel` — list of `{gene, chrom, start, end, min_depth}` entries
-- `cnv_thresholds` — amplification/deletion/LOH boundaries
-- `msi_thresholds` / `tmb_thresholds` — biomarker classification cutoffs
-- `qc_thresholds` — `{min_mean_depth, min_pct_bases_100x, max_contamination, min_tumor_purity}`
-- `sla_days` — `{routine: 14, urgent: 5}`
-
-#### Audit Log
-`AuditService.log(event_type, actor_user_id, actor_role, target_collection, target_id, payload)`
-
-Never raises on failure. Append-only — no updates or deletes ever written to `audit_log`.
-
----
-
-### Phase 2 — Core Review Workflow
-
-**Files:** `services/samples.py`
-
-#### Two-Reviewer Consensus State Machine
-
-```
-unreviewed
-  → pending_second_review   (first reviewer submits tier + interpretation)
-  → concordant              (second reviewer agrees on same tier)
-  → discordant              (second reviewer assigns different tier)
-  → escalated               → resolved (senior_reviewer makes final call)
-```
-
-A variant is **reportable** only when `consensus_status = "concordant"` or `"resolved"`.
-
-#### Key functions
-
-| Function | Description |
-|---|---|
-| `SampleService.update_snv_review(...)` | Submit/update SNV review. Enforces state machine. |
-| `SampleService.update_cnv_review(...)` | Same for CNVs. |
-| `SampleService.update_sv_review(...)` | Same for SVs. |
-
-All review updates are **optimistic-locked** using:
-```python
-{"$expr": {"$eq": [{"$size": "$review_history"}, history_len]}}
-```
-If the history has grown since the page was loaded, the update is rejected and the user sees a conflict error.
-
-#### Bypass Mechanism
-
-When a `senior_reviewer` sets `bypass_justification` (non-empty), the single-reviewer result is accepted and marked `resolved`. Recorded in audit trail and surfaced in report.
-
-#### Case Assignment
-
-`SampleService.assign_case(sample_assay_id, reviewer_ids, bioinformatician_id)` — lab_director / senior_reviewer only.
-
----
-
-### Phase 3 — Variant Types
-
-**Files:** `services/samples.py`, `services/biomarker.py`
-
-#### CNV Review
-
-- Keyed by `(sample_assay_id, gene)`.
-- `is_borderline = True` when copy number is within 10% of a threshold boundary.
-- Borderline CNVs require explicit geneticist selection with justification.
-
-#### SV / Fusion Review
-
-- Keyed by `sv_id`.
-- `is_novel_breakpoint = True` flags novel breakpoints for extended review even when the gene pair is known.
-- `sv_type` values: `fusion`, `inversion`, `deletion`, `duplication`, `translocation`.
-
-#### MSI / TMB Biomarkers
-
-`BiomarkerService.classify_from_callset(sample_assay_id)` — reads `msi_score` and `tmb_mut_per_mb` from the active callset's QC metrics and classifies against the active assay config thresholds.
-
-`BiomarkerService.confirm(sample_assay_id, reviewer_note, discordance_acknowledged, ...)` — lightweight confirmation step required before preflight can pass.
-
-Discordance flag (`discordance_flag = True`) is set when MSI and TMB classifications contradict each other (e.g. MSI-H + TMB-Low). Reviewer must explicitly acknowledge before proceeding.
-
----
-
-### Phase 4 — Data Ingestion
-
-**Files:** `services/ingestion.py`, `cli/import_vcf.py`, `cli/watcher.py`
-
-#### VCF Import Pipeline
-
-```
-1. SHA256 checksum → idempotency check (skip if already imported)
-2. Validate sample_assay_id exists
-3. Supersede any existing imported callset for this case
-4. Create callset record (import_status = "pending")
-5. bcftools norm: left-align, split multiallelics, trim padding
-6. VEP annotation: --everything --canonical --offline
-7. Parse annotated VCF → insert snvs_raw documents
-8. Parse QC JSON → populate qc_metrics
-9. QC gate evaluation → qc_status: passed / borderline / failed
-10. Update sample_assay status: analysis_ready / pending_qc / qc_failed
-11. Append to state_history, write audit log entry
-```
-
-#### QC Gate Thresholds (from assay config `qc_thresholds`)
-
-| Metric | Default |
-|---|---|
-| `min_mean_depth` | 100× |
-| `min_pct_bases_100x` | 80.0% |
-| `max_contamination` | 0.05 |
-| `min_tumor_purity` | 0.20 (when set) |
-
-`borderline` status is returned when only soft metrics fail (purity / contamination near threshold). Hard failures (depth, coverage) → `failed`.
-
-#### Callset Versioning
-
-If a new VCF is imported for a case that already has an `imported` callset:
-- All previous callsets for that `sample_assay_id` are marked `import_status = "superseded", is_active = False`
-- A `callset_superseded` audit event is written
-- The new callset becomes active
-
-#### CLI: `flask import-vcf`
+Alternatively, skip the dev server entirely: `npm run build` writes to `frontend/dist/`, which nginx serves on **port 8080** via the bind mount in `docker-compose.yml`. Restart nginx after each build:
 
 ```bash
-flask import-vcf \
-  --vcf /path/to/sample.vcf.gz \
-  --qc /path/to/sample.qc.json \
-  --sample-assay-id SA_LUNG_001 \
-  --user-id user123 \
-  --username bioinf \
-  --bcftools /usr/bin/bcftools \
-  --vep /usr/bin/vep \
-  --vep-cache /data/vep_cache \
-  --ref-fasta /data/GRCh38.fa
+npm run build && docker compose -f ../backend/docker-compose.yml restart nginx
 ```
 
-Flags `--skip-normalise` and `--skip-annotate` bypass the external tool calls (dev/testing use only).
+---
+---
 
-#### CLI: `flask run-watcher`
+## Common Tasks
 
-Polls `VCF_IMPORT_DIR` every 15 minutes (configurable via `--interval`).
+Recipes for the changes you'll make most often. Each one ends with the docs to update — see the Documentation Map in [CLAUDE.md](../CLAUDE.md).
 
-Expected file layout in the inbox directory:
-```
-<watch_dir>/
-  sample.vcf.gz           ← VCF file
-  sample.qc.json          ← QC metrics (optional)
-  sample.meta.json        ← Required: {"sample_assay_id": "SA_..."}
-  processed/              ← successfully imported files moved here
-  failed/                 ← failed imports moved here
-```
+### Add an API endpoint
 
-Use `--once` for cron-based invocation instead of long-running process.
+1. **Business logic goes in a service**, never the router — `src/services/<domain>.py`:
+   ```python
+   class MyService:
+       @staticmethod
+       def get_data(thing_id: str) -> dict | None:
+           db = mongo_client.db
+           return db.things.find_one({"thing_id": thing_id}, {"_id": 0})
+   ```
+   No `fastapi` imports here. See [the layer rule](ARCHITECTURE.md#the-rule-that-matters).
+
+2. **Add the route** in `src/routers/api_v1.py`:
+   ```python
+   @router.get("/things/{thing_id}", dependencies=[Depends(require_login)])
+   def get_thing(thing_id: str):
+       thing = MyService.get_data(thing_id)
+       if not thing:
+           raise HTTPException(status_code=404, detail="Thing not found")
+       return {"data": thing}
+   ```
+   Return `{"data": ...}`; raise `HTTPException` for errors — the global handler renders `{"error": ...}`.
+
+3. **Pick the auth dependency deliberately** — `require_login`, or `require_role("admin", …)`. Omitting it makes the endpoint public; see [Known Issues #1](ARCHITECTURE.md#1-nine-read-endpoints-have-no-authentication----security).
+
+4. **Audit any mutation** (required):
+   ```python
+   AuditService.log(event_type="thing_updated", actor_user_id=user["user_id"],
+                    actor_role=user["role"], target_collection="things",
+                    target_id=thing_id, payload={"before": before, "after": after})
+   ```
+
+5. **Apply it**: `docker compose -f backend/docker-compose.yml up -d --force-recreate app`
+
+6. **Verify** at <http://localhost/docs> — the endpoint appears automatically.
+
+📄 Update: API Reference below · `CHANGELOG.md`
+
+### Add a React page
+
+1. Create `frontend/src/pages/MyPage.tsx`
+2. Add an API module `frontend/src/api/myDomain.ts`:
+   ```typescript
+   import client from './client'
+   export const myApi = {
+     list: () => client.get('/my-resource').then((r) => r.data.data),
+   }
+   ```
+3. Register the route in `App.tsx`: `<Route path="/my-page" element={<MyPage />} />`
+4. Add to `navItems` in `components/Layout.tsx`, with a `roles` filter if role-gated
+5. Build: `cd frontend && npm run build && docker compose -f ../backend/docker-compose.yml restart nginx`
+
+📄 Update: [React Frontend](#react-frontend) · `CHANGELOG.md`
+
+### Add or change a Mongo collection
+
+1. Add index definitions to `src/db/indexes.py` — applied automatically at boot
+2. Add a demo fixture in `backend/app/demo_data/<collection>.json`
+3. Register it in `load_demo_data()` in `src/cli/load_demo.py`
+4. Reload: `docker exec app_omixia python cli.py load-demo`
+
+📄 Update: [Data Model](ARCHITECTURE.md#data-model) + [Database Indexes](ARCHITECTURE.md#database-indexes) · `CHANGELOG.md`
+
+### Add a CLI command
+
+1. Implement it in `src/cli/<name>.py` as a plain function with Typer-annotated parameters
+2. Register in `cli.py`: `app.command("my-command")(_my_command)`
+3. Mongo/Redis are already initialised by the `@app.callback()` — don't reconnect
+
+📄 Update: [CLI Commands](#cli-commands) · `CHANGELOG.md`
+
+### Add a configuration variable
+
+1. Add the field to `Settings` in `src/config.py` (use `Field(validation_alias=...)` if the env name differs)
+2. Add it to `backend/.env.example` with a safe placeholder — **never a real secret**
+3. Recreate the container; env vars are read once at process start
+
+📄 Update: [Configuration](#configuration) + [OPERATIONS.md](OPERATIONS.md) env table · `CHANGELOG.md`
 
 ---
 
-### Phase 5 — Knowledge Database
+## Conventions
 
-**Files:** `services/knowledge.py`, `blueprints/web/templates/knowledge.html`
-
-#### Variant Knowledge Entries
-
-Curated clinical interpretations stored per variant + disease context. Three primary keys:
-
-| Variant Type | Key |
+| Area | Rule |
 |---|---|
-| SNV | `gene + hgvsp + disease_subtype` |
-| CNV | `gene + event_type + disease_group` |
-| SV/Fusion | `gene_5prime + gene_3prime + disease_group` |
+| Python formatting | **black**; type hints on all new functions |
+| TypeScript formatting | **prettier** — 2-space indent, single quotes |
+| Comments | Don't add docstrings/comments to code you didn't change |
+| Error handling | No defensive handling for impossible scenarios |
+| Handlers | Plain `def`, never `async def` — [why](ARCHITECTURE.md#why-handlers-are-def-not-async-def) |
+| Services | No web-framework imports in `src/services/` |
+| Mutations | Always `AuditService.log()` |
+| Responses | `{"data": …}` / `{"error": …}` |
 
-`disease_subtype = null` means the entry applies pan-disease within the `disease_group`.
+### Typecheck the frontend
 
-#### Lookup Strategy
-
-`KnowledgeService.lookup_for_snv(variant, disease_subtype)` applies a two-tier fallback:
-1. Exact match: `gene + hgvsp + disease_subtype`
-2. Pan-disease fallback: same gene + hgvsp with `disease_subtype = null`
-
-#### Evidence Panel
-
-When a reviewer opens a novel variant (no knowledge match), `KnowledgeService.get_evidence_panel(variant)` bundles:
-- Exact knowledge entry (if matched)
-- Same-codon entries (regex prefix extraction on hgvsp)
-- Same-gene entries
-
-This powers the pre-fill UI in `snv_detail_form.html`.
-
-#### Full-Text Search
-
-```python
-KnowledgeService.search(query, filters={})
-```
-Uses MongoDB `$text` index on `(interpretation, evidence_summary)`. Requires minimum 3 words in the query to prevent misleading partial matches.
-
-#### Versioning
-
-Every edit to a knowledge entry appends to `version_history` and increments `version`. `change_note` is required for edits. `senior_reviewer` and `lab_director` can edit; all internal users can read.
-
-#### Observation Tracking
-
-`KnowledgeService.increment_observation(knowledge_id)` — called when a knowledge entry is applied to a review. Increments `observation_count` and sets `federation_eligible = True` when count reaches 5.
-
----
-
-### Phase 6 — Report Generation
-
-**Files:** `services/report.py`, `services/preflight.py`
-
-#### Report Lifecycle
-
-```
-draft
-  → pending_sign_off   (after first sign-off)
-  → finalised          (requires ≥2 sign-offs, all preflight checks pass,
-                        senior_reviewer or lab_director only)
-  → delivered / amended / superseded
+```bash
+cd frontend && npx tsc --noEmit
 ```
 
-#### Pre-Finalisation Preflight Checklist
+### Tests
 
-`PreflightService.run_checks(sample_assay_id)` evaluates:
+There is no backend test suite yet — see [Known Issues #4](ARCHITECTURE.md#4-no-automated-test-suite). When adding one, run single tests rather than the full suite:
 
-| Check | Condition |
-|---|---|
-| All variants reviewed | No `unreviewed` variants remain |
-| Consensus met | All variants are `concordant` or `resolved` |
-| Tier 1/2 interpretations complete | No blank interpretation on Tier 1 or 2 variants |
-| Biomarkers confirmed | MSI/TMB `review_status = "confirmed"` |
-| QC within thresholds | Callset `qc_status = "passed"` |
-| Two sign-offs obtained | ≥2 entries in `report.sign_offs` |
-
-Any failed check blocks finalisation with a specific reason. The result is also stored in `report.preflight_checks` at finalisation time.
-
-#### Report Snapshot
-
-`ReportService.finalise()` creates an **immutable snapshot** of all case data at the time of sign-off:
-```
-snapshot.sample         ← sample metadata
-snapshot.assay          ← assay config at time of review
-snapshot.callset_qc     ← QC metrics
-snapshot.snvs/cnvs/svs  ← reportable variants only (concordant or resolved, non-artifact)
-snapshot.biomarkers
-snapshot.knowledge_versions_used   ← knowledge_id → version number
-snapshot.threshold_versions_used
+```bash
+pytest tests/test_foo.py -k test_bar
 ```
 
-#### Report Export
-
-`ReportService.export_json(report_id)` — returns JSON following internal schema v1. Suitable for EHR ingestion. Does not expose raw MongoDB document structure.
-
-#### Amendment Policy
-
-| Scenario | Action |
-|---|---|
-| Typo, report not yet delivered | Internal amendment — `status = "amended"`, audit logged |
-| Substantive change, report delivered | New `corrected_report`, supersedes original |
-| New info after delivery | `addendum` report appended, original unchanged |
-
 ---
-
-### Phase 7 — Advanced Features
-
----
-
-#### TAT Tracking & SLA Alerting
-
-**File:** `services/tat.py`
-
-`TATService.sla_status(assay)` returns one of:
-
-| Status | Condition |
-|---|---|
-| `complete` | Case in terminal state (finalised / delivered) |
-| `on_track` | Active, >48h before SLA deadline |
-| `amber` | Active, ≤48h before SLA deadline |
-| `breached` | Active, SLA deadline passed |
-| `unknown` | No `sla_due_at` field |
-
-`TATService.is_stalled(assay)` — `True` when the case is active and no state change has occurred in >24 hours.
-
-`TATService.dashboard_stats()` returns:
-```json
-{
-  "active_cases": [...],       // annotated with _sla_status, _tat_hours, _stalled
-  "summary": {
-    "total_active": int,
-    "breached": int,
-    "stalled": int,
-    "pct_within_sla": float
-  },
-  "assay_breakdown": [
-    { "assay_id": str, "count": int, "avg_tat": float, "median_tat": float }
-  ]
-}
-```
-
-Accessible at `/lab-dashboard` (lab_director / senior_reviewer only).
-
----
-
-#### Ordering Physician Portal
-
-**File:** `services/portal.py`, `blueprints/portal/routes.py`
-
-`PortalService.issue_token(report_id, ...)` — generates a `secrets.token_urlsafe(32)` token with 30-day TTL. Automatically revokes any previous active tokens for the same report.
-
-The access URL for the physician: `https://<host>/portal/access/<token>`
-
-The portal is read-only. Physicians see:
-- Case information (pseudonymised patient ID, diagnosis, assay)
-- Tumour biomarkers (MSI/TMB)
-- Reportable variants: SNVs, CNVs, SVs/Fusions (with tier and interpretation)
-- Sign-offs list
-
-Physician portal uses a **separate session key** (`portal_token`) from the internal user session (`user`) to prevent cross-contamination.
-
-Token management (issue / view history) is accessible to `senior_reviewer` and `lab_director` from the Report tab of the variant review workspace.
-
----
-
-#### Assay Gap Analysis
-
-**File:** `services/gap_analysis.py`
-
-`GapAnalysisService.query_gene_coverage(gene, assay_id=None)` queries the `gene_panel` arrays across all assay versions to determine:
-- `covered_by` — assay versions whose panel includes the gene
-- `not_covered_by` — assay versions whose panel does NOT include the gene
-- `uncovered_cases` — active cases run on panels that don't cover the gene
-
-Accessible at `/gap-analysis` (lab_director only). **Read-only — does not modify any records.**
-
----
-
-#### Cohort Query Interface
-
-**File:** `services/gap_analysis.py` (`CohortService`)
-
-`CohortService.query(gene, tier, variant_type, assay_id, acknowledge_multi_version)` queries `snvs_raw`, `cnvs_raw`, `svs_raw` simultaneously and annotates each result with `_assay_id`, `_assay_version`, `_variant_type`.
-
-When results span multiple assay panel versions, `multi_version_warning = True` is returned and the UI requires explicit acknowledgment before showing the data (`?acknowledge=1`).
-
-Accessible at `/cohort` (all internal users).
-
----
-
-#### Federated Knowledge Sharing
-
-**File:** `services/federation.py`
-
-**Export eligibility criteria:**
-- `observation_count ≥ 5`
-- `federation_eligible = True`
-
-`FederationService.build_export(lab_id, ...)` — packages all eligible entries into a `federation_exports` document including schema version, entry count, and a snapshot of each entry.
-
-`FederationService.import_from_registry(payload, ...)` — processes an incoming export from another lab:
-- Finds matching local entries by variant key
-- If no local entry: creates a shadow entry (`_federated = True`) — read-only, not modifiable
-- If local entry exists and tier differs by ≥1: sets `is_contested = True` on the local entry, surfacing the discordance to reviewers
-
-Export schema version is `1.0`. Accessible at `/federation` (lab_director only).
-
----
-
 ## API Reference
 
-All API routes are prefixed with `/api`. Authentication uses the internal session cookie (`withCredentials: true` from the React frontend, or a browser session from the Jinja2 UI).
+All API routes are prefixed with `/api`. Authentication uses the internal session cookie (`withCredentials: true` from the React frontend, or a browser session from the Jinja2 login page).
+
+The **Auth** column reflects what the code actually enforces, verified against `src/routers/api_v1.py`:
+
+| Value | Meaning |
+|---|---|
+| `none` | No dependency — **served to unauthenticated callers**. See the [known gap](#enforcing-auth-on-an-endpoint). |
+| `login` | `Depends(require_login)` — any authenticated user |
+| `<role>, …` | `Depends(require_role(…))` — 401 unauthenticated, 403 wrong role |
+| `login*` | No route-level dependency, but the handler calls `current_user()` / `_require_user()` and 401s itself — equivalent to `login` in effect |
+
+Since FastAPI generates OpenAPI automatically, the live, always-current contract is served by the running backend at **`/docs`** (Swagger UI), **`/redoc`**, and **`/openapi.json`** — 56 paths at time of writing. Treat those as authoritative if this table ever drifts.
 
 ### Auth
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| POST | `/api/auth/login` | None | JSON login `{username, password}` → sets session, returns user object |
-| POST | `/api/auth/logout` | None | Clears session |
-| GET | `/api/auth/me` | None | Returns current session user or 401 |
+| POST | `/api/auth/login` | none | JSON login `{username, password}` → sets session, returns user object |
+| POST | `/api/auth/register` | admin, lab_director | Create a user (201) |
+| POST | `/api/auth/logout` | none | Clears session |
+| GET | `/api/auth/me` | login\* | Returns current session user or 401 |
 
 ### Health
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/health` | None | Service health check |
+| GET | `/api/health` | none | Service health check |
 
 ### Samples & Assays
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/samples` | login | List all samples |
-| GET | `/api/samples/<sample_id>` | login | Get sample detail |
-| GET | `/api/samples/<sample_id>/assays` | login | List assays for a sample |
-| GET | `/api/sample-assays/<id>` | login | Get sample assay detail |
-| POST | `/api/sample-assays/<id>/assign` | senior_reviewer, lab_director | Assign reviewers |
+| GET | `/api/samples` | ⚠️ none | List all samples |
+| GET | `/api/samples/<sample_id>` | ⚠️ none | Get sample detail |
+| GET | `/api/samples/<sample_id>/assays` | ⚠️ none | List assays for a sample |
+| GET | `/api/sample-assays/<id>` | ⚠️ none | Get sample assay detail |
+| GET | `/api/sample-assays/<id>/summary` | ⚠️ none | Review-progress summary |
+| POST | `/api/sample-assays/<id>/assign` | admin, senior_reviewer, lab_director | Assign reviewers |
 
 ### Variants
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/sample-assays/<id>/snvs` | login | List SNVs |
-| GET | `/api/sample-assays/<id>/snvs/<chrom>/<pos>/<ref>/<alt>` | login | Get SNV detail |
-| POST | `/api/sample-assays/<id>/snvs/<chrom>/<pos>/<ref>/<alt>/review` | login | Submit SNV review |
+| GET | `/api/sample-assays/<id>/snvs` | ⚠️ none | List SNVs |
+| GET | `/api/sample-assays/<id>/snvs/<chrom>/<pos>/<ref>/<alt>` | ⚠️ none | Get SNV detail |
+| POST | `/api/sample-assays/<id>/snvs/<chrom>/<pos>/<ref>/<alt>/review` | login\* | Submit SNV review |
 | GET | `/api/sample-assays/<id>/cnvs` | login | List CNVs |
 | GET | `/api/sample-assays/<id>/cnvs/<gene>` | login | Get CNV detail |
-| POST | `/api/sample-assays/<id>/cnvs/<gene>/review` | login | Submit CNV review |
+| POST | `/api/sample-assays/<id>/cnvs/<gene>/review` | login\* | Submit CNV review |
 | GET | `/api/sample-assays/<id>/svs` | login | List SVs |
 | GET | `/api/sample-assays/<id>/svs/<sv_id>` | login | Get SV detail |
-| POST | `/api/sample-assays/<id>/svs/<sv_id>/review` | login | Submit SV review |
+| POST | `/api/sample-assays/<id>/svs/<sv_id>/review` | login\* | Submit SV review |
 
 ### Biomarkers
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | GET | `/api/sample-assays/<id>/biomarkers` | login | Get MSI/TMB biomarkers |
-| POST | `/api/sample-assays/<id>/biomarkers/classify` | bioinformatician, lab_director, senior_reviewer | Classify from callset |
-| POST | `/api/sample-assays/<id>/biomarkers/confirm` | login | Reviewer confirmation |
+| POST | `/api/sample-assays/<id>/biomarkers/classify` | admin, bioinformatician, lab_director, senior_reviewer | Classify from callset |
+| POST | `/api/sample-assays/<id>/biomarkers/confirm` | login\* | Reviewer confirmation |
 
 ### Preflight & Reports
 
@@ -905,21 +516,21 @@ All API routes are prefixed with `/api`. Authentication uses the internal sessio
 |---|---|---|---|
 | GET | `/api/sample-assays/<id>/preflight` | login | Run preflight checks |
 | GET | `/api/sample-assays/<id>/reports` | login | List reports for case |
-| POST | `/api/sample-assays/<id>/reports` | login | Create draft report |
+| POST | `/api/sample-assays/<id>/reports` | login\* | Create draft report (201) |
 | GET | `/api/reports/<id>` | login | Get report detail |
-| POST | `/api/reports/<id>/sign-off` | login | Add sign-off |
-| POST | `/api/reports/<id>/finalise` | senior_reviewer, lab_director | Finalise report |
+| POST | `/api/reports/<id>/sign-off` | login\* | Add sign-off |
+| POST | `/api/reports/<id>/finalise` | admin, senior_reviewer, lab_director | Finalise report |
 | GET | `/api/reports/<id>/export` | login | Export JSON (schema v1) |
-| POST | `/api/reports/<id>/addendum` | login | Create addendum |
-| POST | `/api/reports/<id>/portal-token` | senior_reviewer, lab_director | Issue physician portal token |
+| POST | `/api/reports/<id>/addendum` | admin, senior_reviewer, lab_director | Create addendum (201) |
+| POST | `/api/reports/<id>/portal-token` | admin, senior_reviewer, lab_director | Issue physician portal token (201) |
 
 ### Assay Configs
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/assay-configs` | login | List all assay configs |
-| GET | `/api/assay-configs/<assay_id>` | login | Get active config |
-| POST | `/api/assay-configs` | senior_reviewer, lab_director | Create config |
+| GET | `/api/assay-configs` | ⚠️ none | List all assay configs |
+| GET | `/api/assay-configs/<assay_id>` | ⚠️ none | Get active config |
+| POST | `/api/assay-configs` | admin, senior_reviewer, lab_director | Create config (201) |
 
 ### Callsets / Ingestion
 
@@ -927,16 +538,23 @@ All API routes are prefixed with `/api`. Authentication uses the internal sessio
 |---|---|---|---|
 | GET | `/api/sample-assays/<id>/callsets` | login | List callsets for case |
 | GET | `/api/callsets/<callset_id>` | login | Get callset detail |
-| POST | `/api/sample-assays/<id>/callsets/import` | bioinformatician, lab_director | Trigger import via API |
+| POST | `/api/sample-assays/<id>/callsets/import` | admin, bioinformatician, lab_director | Trigger import via API (201) |
+
+### Users
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/api/users` | admin, lab_director, senior_reviewer | List users (no password hashes) |
+| POST | `/api/users` | admin, lab_director | Create user (201) |
 
 ### Knowledge Database
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/knowledge` | login | List knowledge entries (filters: gene, variant_type, tier, disease_group) |
-| POST | `/api/knowledge` | senior_reviewer, lab_director | Create entry |
+| GET | `/api/knowledge` | login | List knowledge entries (filters: gene, variant_type, tier, disease_group, disease_subtype) |
+| POST | `/api/knowledge` | admin, senior_reviewer, lab_director | Create entry (201) |
 | GET | `/api/knowledge/<id>` | login | Get entry |
-| PUT | `/api/knowledge/<id>` | senior_reviewer, lab_director | Update entry (versioned) |
+| PUT | `/api/knowledge/<id>` | admin, senior_reviewer, lab_director | Update entry (versioned) |
 | GET | `/api/knowledge/search?q=...` | login | Full-text search (min 3 words) |
 | GET | `/api/knowledge/lookup/snv?gene=&hgvsp=&disease_subtype=` | login | Disease-aware lookup |
 
@@ -944,72 +562,110 @@ All API routes are prefixed with `/api`. Authentication uses the internal sessio
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| GET | `/api/lab/dashboard` | lab_director, senior_reviewer | TAT/SLA dashboard stats |
-| GET | `/api/gap-analysis?gene=&assay_id=` | lab_director | Assay gene coverage query |
-| GET | `/api/cohort?gene=&tier=&variant_type=&assay_id=` | login | Cohort variant query |
-| POST | `/api/federation/export` | lab_director | Build and store knowledge export |
-| POST | `/api/federation/import` | lab_director | Import from external registry |
-| GET | `/api/federation/exports` | lab_director | List export history |
+| GET | `/api/lab/dashboard` | admin, lab_director, senior_reviewer | TAT/SLA dashboard stats |
+| GET | `/api/gap-analysis?gene=&assay_id=` | admin, lab_director | Assay gene coverage query |
+| GET | `/api/cohort?gene=&tier=&variant_type=&assay_id=&acknowledge=` | login | Cohort variant query |
+| POST | `/api/federation/export` | admin, lab_director | Build and store knowledge export (201) |
+| POST | `/api/federation/import` | admin, lab_director | Import from external registry |
+| GET | `/api/federation/exports` | admin, lab_director | List export history |
+| GET | `/api/federation/eligible` | admin, lab_director | Count of federation-eligible entries |
+
+### Non-API Routes
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | none | Jinja2 landing page |
+| GET | `/about` | none | Jinja2 about page |
+| GET / POST | `/login` | none | Jinja2 login form (form-encoded, not JSON) |
+| POST | `/logout` | none | Clears session, redirects to `/` |
+| GET | `/portal/` | none | Physician portal landing |
+| GET | `/portal/access/<token>` | token | Validates token, sets `session["portal_token"]`, redirects |
+| GET | `/portal/report` | portal token | Read-only report view |
+| POST | `/portal/logout` | none | Clears portal token |
+| GET | `/docs`, `/redoc`, `/openapi.json` | none | Auto-generated API documentation |
 
 ---
 
 ## CLI Commands
 
+The CLI is a [Typer](https://typer.tiangolo.com/) app at `backend/app/cli.py`. Every command opens its own Mongo/Redis connections, so it runs independently of the web workers.
+
+Run it inside the app container (the usual case):
+
 ```bash
 # Load seed / demo data
-flask load-demo
+docker exec app_omixia python cli.py load-demo
 
-# Create an internal user
-flask create-user
+# Create an internal user (prompts for password, min 12 chars)
+docker exec -it app_omixia python cli.py create-user \
+  --username jdoe --email jdoe@lab.example --full-name "J Doe" --role reviewer
 
 # Import a single VCF (full pipeline)
-flask import-vcf --vcf <path> --qc <path> --sample-assay-id <id> \
-                 [--skip-normalise] [--skip-annotate]
+docker exec app_omixia python cli.py import-vcf \
+  --vcf <path> --qc <path> --sample-assay-id <id> \
+  [--skip-normalise] [--skip-annotate]
 
 # Run the directory watcher (long-running or cron mode)
-flask run-watcher [--watch-dir /data/vcf_inbox] [--interval 900] [--once]
+docker exec app_omixia python cli.py run-watcher \
+  [--watch-dir /data/vcf_inbox] [--interval 900] [--once]
+
+# Discover options for any command
+docker exec app_omixia python cli.py --help
+docker exec app_omixia python cli.py import-vcf --help
 ```
 
----
-
-## Database Indexes
-
-All indexes are ensured at startup by `db/indexes.py → ensure_indexes()`.
-
-| Collection | Index | Notes |
-|---|---|---|
-| `users` | `email` (unique), `username` (unique) | |
-| `assay_configs` | `(assay_id, version)` (unique), `is_active` | |
-| `audit_log` | `timestamp`, `actor_user_id`, `target_id` | |
-| `callsets` | `callset_id` (unique), `sample_assay_id`, `vcf_checksum`, `(sample_assay_id, import_status)` | |
-| `cnvs_raw` | `(sample_assay_id, gene)` (unique) | |
-| `svs_raw` | `sample_assay_id`, `(sample_assay_id, sv_id)` (unique) | |
-| `sample_assays` | `sample_id`, `status` | |
-| `biomarkers` | `sample_assay_id` (unique) | |
-| `reports` | `report_id` (unique), `sample_assay_id`, `(sample_assay_id, status)` | |
-| `variant_knowledge` | `knowledge_id` (unique), `(variant_type, gene)`, `(variant_type, gene, hgvsp, disease_subtype)`, `(variant_type, gene_5prime, gene_3prime)`, text index `(interpretation, evidence_summary)` named `knowledge_text_search` | |
-| `report_access_tokens` | `token` (unique), `report_id`, `(report_id, revoked)` | |
-| `federation_exports` | `export_id` (unique), `target_lab_id`, `exported_at` | |
+Notes:
+- `create-user` needs `-it` because it prompts for the password interactively.
+- All paths are resolved **inside the container**.
+- Running `python cli.py …` on the host works too, but only with the backend `.env` exported and Mongo/Redis reachable at the hostnames in `MONGO_URI` / `CACHE_REDIS_URL` (which are Docker service names, so container execution is strongly preferred).
 
 ---
-
 ## Configuration
 
-All configuration is read from environment variables via `src/config.py`.
+Configuration is read from `backend/.env` into a `pydantic-settings` `Settings` object in `src/config.py`, exported as the module-level singleton `settings`. Start from `backend/.env.example`.
+
+### Core
+
+| Variable | Read as | Default | Description |
+|---|---|---|---|
+| `FLASK_SECRET_KEY` | `settings.SECRET_KEY` | `""` | Signing key for the session cookie. **Must be set** — an empty key makes sessions forgeable. Generate with `python -c "import secrets; print(secrets.token_hex(32))"`. |
+| `SESSION_COOKIE_NAME` | same | `session` | Cookie name (this deployment uses `Omixia`). |
+| `FLASK_DEBUG` | `settings.DEBUG` | `0` | `1` to enable debug mode. |
+| `MONGO_URI` | same | `""` | MongoDB connection URI. |
+| `OMIXIA_DB_NAME` | same | `""` | MongoDB database name. |
+| `CACHE_REDIS_URL` | same | `""` | Redis URL — backs the session store. |
+| `REPORTS_BASE_PATH` | same | `""` | Filesystem path for generated report files. |
+| `DEVELOPMENT` / `TESTING` | same | `0` | Environment flags. |
+
+> The `FLASK_`-prefixed names are retained deliberately: the migration mapped them via `Field(validation_alias=...)` rather than renaming, so existing `.env` files and the deployment runbook keep working. They no longer imply Flask is in use.
+
+### Session & CORS (required for cross-origin production)
+
+| Variable | Default | Description |
+|---|---|---|
+| `SESSION_COOKIE_SAMESITE` | `Lax` | Set to `None` when the SPA is served from a different origin. |
+| `SESSION_COOKIE_SECURE` | `0` | Set to `1` in production; required whenever SameSite is `None`. |
+| `ALLOWED_ORIGINS` | `""` | Comma-separated origins for `CORSMiddleware`. **Empty falls back to `*`**, which cannot be combined with credentialed requests — set it explicitly in production. |
+| `SPA_BASE_URL` | `""` | SPA URL used by the Jinja2 landing page for cross-origin links. Falls back to `http://<host>:8080`. |
+
+### Ingestion Pipeline
+
+| Variable | Default | Description |
+|---|---|---|
+| `VCF_IMPORT_DIR` | `/data/vcf_inbox` | Watched inbox directory for `run-watcher`. |
+| `BCFTOOLS_BIN` | `bcftools` | Path to the bcftools binary. |
+| `VEP_BIN` | `vep` | Path to the Ensembl VEP binary. |
+| `VEP_CACHE_DIR` | `""` | Path to the VEP local cache directory. |
+| `REF_FASTA` | `""` | GRCh38 reference FASTA for `bcftools norm`. |
+| `WATCHER_USER_ID` | `watcher` | User ID attributed to watcher-triggered imports. |
+| `WATCHER_USERNAME` | `watcher` | Username attributed to watcher-triggered imports. |
+
+These are consumed as Typer option defaults in `src/cli/{import_vcf,watcher}.py`, not through `Settings`.
+
+### Docker Compose
 
 | Variable | Description |
 |---|---|
-| `SECRET_KEY` | Flask session signing key |
-| `SESSION_COOKIE_NAME` | Cookie name (default: `omixia_session`) |
-| `FLASK_DEBUG` | `1` to enable debug mode |
-| `MONGO_URI` | MongoDB connection URI |
-| `OMIXIA_DB_NAME` | MongoDB database name |
-| `CACHE_REDIS_URL` | Redis connection URL for sessions |
-| `REPORTS_BASE_PATH` | Filesystem path for generated PDF/JSON report files |
-| `VCF_IMPORT_DIR` | Watched inbox directory for the watcher CLI |
-| `BCFTOOLS_BIN` | Path to bcftools binary (default: `bcftools`) |
-| `VEP_BIN` | Path to Ensembl VEP binary (default: `vep`) |
-| `VEP_CACHE_DIR` | Path to VEP local cache directory |
-| `REF_FASTA` | Path to GRCh38 reference FASTA for bcftools norm |
-| `WATCHER_USER_ID` | User ID attributed to watcher-triggered imports |
-| `WATCHER_USERNAME` | Username attributed to watcher-triggered imports |
+| `MONGO_INITDB_ROOT_USERNAME` | Mongo root user created on first container start. |
+| `MONGO_INITDB_ROOT_PASSWORD` | Mongo root password — must match the credentials in `MONGO_URI`. |
+| `PORT_NBR` | Informational; the app listens on 8000 inside the container. |

@@ -3,7 +3,6 @@ import uuid
 from datetime import datetime
 
 import bcrypt
-from flask import current_app
 from src.extensions import mongo_client
 
 
@@ -36,27 +35,26 @@ def load_users(db, path):
     print(f"  Loaded {len(users)} demo users.")
 
 
-def load_demo_data(app):
-    with app.app_context():
-        db = mongo_client.db
+def load_demo_data() -> None:
+    db = mongo_client.db
 
-        load_collection(db, "samples", "demo_data/samples.json")
-        load_collection(db, "sample_assays", "demo_data/sample_assays.json")
-        load_collection(db, "callsets", "demo_data/callsets.json")
-        load_collection(db, "snvs_raw", "demo_data/snvs_raw.json")
-        load_collection(db, "sample_assay_summary", "demo_data/sample_assay_summary.json")
-        load_collection(db, "assay_configs", "demo_data/assay_configs.json")
-        load_collection(db, "cnvs_raw", "demo_data/cnvs_raw.json")
-        load_collection(db, "svs_raw", "demo_data/svs_raw.json")
-        load_collection(db, "biomarkers", "demo_data/biomarkers.json")
-        load_collection(db, "variant_knowledge", "demo_data/variant_knowledge.json")
-        load_users(db, "demo_data/users.json")
+    load_collection(db, "samples", "demo_data/samples.json")
+    load_collection(db, "sample_assays", "demo_data/sample_assays.json")
+    load_collection(db, "callsets", "demo_data/callsets.json")
+    load_collection(db, "snvs_raw", "demo_data/snvs_raw.json")
+    load_collection(db, "sample_assay_summary", "demo_data/sample_assay_summary.json")
+    load_collection(db, "assay_configs", "demo_data/assay_configs.json")
+    load_collection(db, "cnvs_raw", "demo_data/cnvs_raw.json")
+    load_collection(db, "svs_raw", "demo_data/svs_raw.json")
+    load_collection(db, "biomarkers", "demo_data/biomarkers.json")
+    load_collection(db, "variant_knowledge", "demo_data/variant_knowledge.json")
+    load_users(db, "demo_data/users.json")
 
-        print("Demo data loaded successfully.")
-        print("")
-        print("Demo credentials (password: omixia_demo_1):")
-        print("  admin       — admin")
-        print("  geneticist  — reviewer")
-        print("  senior      — senior_reviewer")
-        print("  director    — lab_director")
-        print("  bioinf      — bioinformatician")
+    print("Demo data loaded successfully.")
+    print("")
+    print("Demo credentials (password: omixia_demo_1):")
+    print("  admin       — admin")
+    print("  geneticist  — reviewer")
+    print("  senior      — senior_reviewer")
+    print("  director    — lab_director")
+    print("  bioinf      — bioinformatician")

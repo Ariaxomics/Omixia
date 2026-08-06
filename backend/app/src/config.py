@@ -1,23 +1,29 @@
-import os
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
-class Config:
-    SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
-    SESSION_COOKIE_NAME = os.getenv("SESSION_COOKIE_NAME")
-    DEBUG = bool(int(os.getenv("FLASK_DEBUG", "0")))
+class Settings(BaseSettings):
+    SECRET_KEY: str = Field("", validation_alias="FLASK_SECRET_KEY")
+    SESSION_COOKIE_NAME: str = "session"
+    DEBUG: bool = Field(False, validation_alias="FLASK_DEBUG")
 
-    MONGO_URI = os.getenv("MONGO_URI")
-    OMIXIA_DB_NAME = os.getenv("OMIXIA_DB_NAME")
+    MONGO_URI: str = ""
+    OMIXIA_DB_NAME: str = ""
 
-    CACHE_REDIS_URL = os.getenv("CACHE_REDIS_URL")
-    REPORTS_BASE_PATH = os.getenv("REPORTS_BASE_PATH")
+    CACHE_REDIS_URL: str = ""
+    REPORTS_BASE_PATH: str = ""
 
-    DEVELOPMENT = bool(int(os.getenv("DEVELOPMENT", "0")))
-    TESTING = bool(int(os.getenv("TESTING", "0")))
+    DEVELOPMENT: bool = False
+    TESTING: bool = False
 
-    SESSION_COOKIE_SAMESITE = os.getenv("SESSION_COOKIE_SAMESITE", "Lax")
-    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "0").lower() in ("1", "true", "yes")
-    ALLOWED_ORIGINS: list[str] = [
-        o.strip() for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()
-    ]
-    SPA_BASE_URL = os.getenv("SPA_BASE_URL", "")
+    SESSION_COOKIE_SAMESITE: str = "Lax"
+    SESSION_COOKIE_SECURE: bool = False
+    ALLOWED_ORIGINS: str = ""
+    SPA_BASE_URL: str = ""
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.ALLOWED_ORIGINS.split(",") if o.strip()]
+
+
+settings = Settings()

@@ -19,17 +19,19 @@ class AuditService:
     ) -> None:
         """Append an immutable audit event. Safe to call from any context."""
         try:
-            # Import here to avoid circular issues and handle missing request context
-            from flask import has_request_context, request, session
+            from src.request_context import get_current_request
 
             user = None
             ip_address = None
             session_id = None
 
-            if has_request_context():
-                user = session.get("user")
-                ip_address = request.remote_addr
-                session_id = session.get("_id")
+            request = get_current_request()
+            if request is not None:
+                session = getattr(request.state, "session", None)
+                if session is not None:
+                    user = session.get("user")
+                    session_id = getattr(session, "_session_id", None)
+                ip_address = request.client.host if request.client else None
 
             db = mongo_client.db
             db.audit_log.insert_one(

@@ -1,6 +1,14 @@
-# Omixia React Frontend — Development Diary
+# Omixia — Development Diary (Historical Archive)
 
-**Date:** 2026-03-08
+> ## ⚠️ This file is frozen — do not add to it
+>
+> It is kept for the debugging narratives in entries 1–24, which are still worth grepping when a similar problem resurfaces.
+>
+> **New changes go in [CHANGELOG.md](../CHANGELOG.md)**, which is the maintained record of what changed and when. Milestones from this diary have been backfilled there; the day-to-day fixes were deliberately left here rather than duplicated.
+>
+> For how the system works today, see [ARCHITECTURE.md](ARCHITECTURE.md) — this diary describes states the codebase has since moved past (notably, everything before entry 24 predates the Flask → FastAPI migration).
+
+**Covers:** 2026-03-08 → 2026-08-05
 **Branch:** dev
 **Author:** Development session log
 
@@ -687,3 +695,41 @@ Demo credentials: `admin` / `omixia_demo_1`
 | `backend/docker-compose.yml` | Expose port 8080, mount `frontend/dist` |
 | `backend/app/src/blueprints/api_v1/routes.py` | Fix `user["_id"]` → `user["user_id"]` in `api_login` |
 | `backend/app/demo_data/callsets.json` | Fix `raw_counts`, add `qc_status` |
+
+---
+
+## 24. Backend Migration: Flask → FastAPI
+
+**Date:** 2026-08-05
+
+**Goal:** Full rewrite of the backend from Flask to FastAPI, keeping React and MongoDB unchanged, ahead of the still-pending Phase 9 production deployment.
+
+### 24.1 — Approach
+
+The `src/services/*.py` layer (~3,100 lines: samples, report, knowledge, biomarker, preflight, tat, gap_analysis, federation, ingestion, portal, users) was already framework-agnostic — pure PyMongo, no Flask imports except one lazy import in `audit.py`. That made the migration mostly a rewrite of the thin routing layer:
+
+- **Kept PyMongo synchronous, route handlers `def` not `async def`** — FastAPI runs sync handlers in a threadpool automatically, so the entire services layer moved over unchanged. Rewriting to Motor/async was ruled out as disproportionate effort for no functional payoff.
+- **Flask-Session (Redis) → hand-rolled signed-cookie sessions** (`src/session.py`): opaque session id signed with `itsdangerous`, session dict stored as JSON in Redis, `request.state.session` is a dict-like `Session` object that writes through to Redis on every mutation. Preserves the same cookie name/SameSite/Secure behavior the React SPA already depended on — no frontend changes needed.
+- **`@require_login`/`@require_role` decorators → FastAPI dependencies** (`Depends(...)`) raising `HTTPException(401/403)` (`src/auth.py`).
+- **Same URL prefixes verbatim** (`/api/*`, `/portal/*`, `/`) — blueprints became `APIRouter`s with identical routes/methods, so nginx and the frontend needed zero changes.
+- **`{"data": ...}` / `{"error": "<msg>"}` envelope preserved** via a global `HTTPException` handler in `main.py` that renders `{"error": exc.detail}` instead of FastAPI's default `{"detail": ...}`.
+- **`audit.py`'s `flask.has_request_context()` reach-in** replaced with `src/request_context.py` — a `contextvars.ContextVar[Request]` set by a small middleware in `main.py`, read back by `audit.py` for IP/session id capture. No changes needed to any of the ~40 call sites that already pass `actor_user_id`/`actor_role` explicitly.
+- **Flask CLI commands → Typer app** (`cli.py` at the app root: `load-demo`, `create-user`, `import-vcf`, `run-watcher`), replacing `flask <command>` with `python cli.py <command>`.
+- **Jinja2 templates** for the `web`/`portal` routers moved to `starlette.templating.Jinja2Templates` under `src/templates/{web,portal}/`. Only the live templates (`landing.html`, `login.html`, `base.html`, `about.html`, `portal/login.html`, `portal/report.html`) were carried over — `src/blueprints/web/templates/archive/*` was dead code (pre-Phase-8 HTMX partials, unreferenced by any route) and was dropped rather than migrated.
+- **Dockerfile**: `gunicorn -w 2 -b 0.0.0.0:8000 wsgi:app` → `gunicorn -k uvicorn.workers.UvicornWorker -w 2 -b 0.0.0.0:8000 main:app`. Same multi-worker process model, same port — `docker-compose.yml` and `nginx/default.conf` needed no changes.
+
+### 24.2 — Gotchas hit during the port
+
+- **`config.py`**: `.env` still uses `FLASK_SECRET_KEY`/`FLASK_DEBUG` (left as-is, not renamed). The new pydantic-settings `Settings` class maps them via `Field(validation_alias="FLASK_SECRET_KEY")` etc.
+- **`Jinja2Templates` needs the `jinja2` package explicitly** — FastAPI/Starlette don't pull it in as a hard dependency; had to add it to `requirements.txt`.
+- **`typer==0.12.5` is incompatible with `click>=8.2`** (pip resolved `click==8.4.2` by default) — the CLI failed at startup with `TypeError: Secondary flag is not valid for non-boolean flag.` while building the boolean-flag options in `import_vcf`/`watcher`. Fixed by pinning `click==8.1.7` in `requirements.txt`.
+- **`src/__init__.py`** still had the old Flask `create_app()` factory; since `src` is imported as a plain package now, this broke every import with `ModuleNotFoundError: No module named 'flask'` until emptied out.
+- **Sandbox note**: the running `app_omixia` container could not be stopped/recreated from within this session (`docker stop`/`kill`/`rm` all returned "permission denied" at the daemon level) — verification was done via a throwaway parallel container (`docker run ... backend-app`) on the same network instead. The actual `app_omixia` cutover (`docker compose up -d --force-recreate app`) needs to be run by a human/session with permission to manage that container.
+
+### 24.3 — Verification performed
+
+Via the parallel verification container: `/api/health`, `python cli.py load-demo`, login/logout/`/api/auth/me` session round-trip for multiple demo users, role gating (401 unauthenticated, 403 wrong role) with the `{"error": ...}` envelope intact, SNV review submission (confirmed the resulting `audit_log` entry correctly captured `ip_address`/`session_id` via the new `request_context` mechanism), preflight checks, knowledge search, lab dashboard stats, and the `web`/`portal` Jinja2 pages (landing, login, portal index) all returning 200.
+
+Not exercised: the full finalise → portal-token → portal-access chain (the demo dataset has no report that passes preflight to finalise) and the CNV/SV/federation endpoints specifically — these are mechanical 1:1 ports of the same pattern already verified elsewhere, but haven't been individually clicked through in the browser.
+
+**Files changed:** `backend/app/main.py` (new), `backend/app/cli.py` (new), `backend/app/src/{config,extensions,auth,session,request_context}.py`, `backend/app/src/routers/{api_v1,web,portal}.py` (new, replacing `src/blueprints/`), `backend/app/src/templates/{web,portal}/` (new, replacing `src/blueprints/*/templates/`), `backend/app/src/cli/*.py`, `backend/app/src/db/indexes.py`, `backend/app/src/services/audit.py`, `backend/app/requirements.txt`, `backend/app/Dockerfile`, `CLAUDE.md`.

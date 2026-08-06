@@ -210,3 +210,5 @@ SPEC.md
 
 frontend/node_modules/
 backups/
+.claude.md
+.claude/*

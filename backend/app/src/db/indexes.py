@@ -1,8 +1,7 @@
-from flask import Flask
 from ..extensions import mongo_client
 
 
-def ensure_indexes(app: Flask) -> None:
+def ensure_indexes() -> None:
     db = mongo_client.db
 
     # Users
